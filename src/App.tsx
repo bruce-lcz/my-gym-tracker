@@ -353,12 +353,12 @@ function App() {
             </div>
             {logs.map((row, idx) => (
               <div className="table-row" key={row.id ?? idx}>
-                <span>{row.currentDate}</span>
-                <span>
+                <span data-label="日期：">{row.currentDate}</span>
+                <span data-label="動作：">
                   {row.actionZh}
                   {row.actionEn ? ` / ${row.actionEn}` : ""}
                 </span>
-                <span className="sets-display">
+                <span className="sets-display" data-label="組數：">
                   {row.sets && row.sets.length > 0
                     ? row.sets
                         .filter(s => s.weight || s.reps)
@@ -366,9 +366,9 @@ function App() {
                         .join(" | ")
                     : "-"}
                 </span>
-                <span>{row.rpe}</span>
-                <span className="notes-cell">{row.notes}</span>
-                <span>{row.nextTarget}</span>
+                <span data-label="RPE：">{row.rpe}</span>
+                <span className="notes-cell" data-label="備註：">{row.notes}</span>
+                <span data-label="下次目標：">{row.nextTarget}</span>
               </div>
             ))}
           </div>

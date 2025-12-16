@@ -621,24 +621,96 @@ button:not(:disabled):active {
 }
 
 @media (max-width: 900px) {
+  .page {
+    padding: 16px 12px;
+  }
+
+  header h1 {
+    font-size: 1.8rem;
+  }
+
   .header-top {
-    flex-direction: column;
-    align-items: stretch;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
   }
   
   .theme-toggle {
-    align-self: flex-end;
+    flex-shrink: 0;
+    padding: 8px 12px;
+    font-size: 18px;
+  }
+
+  .card {
+    padding: 16px;
+    margin-top: 16px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .set-row {
+    grid-template-columns: 50px 1fr 1fr auto;
+    gap: 8px;
+  }
+
+  .set-label {
+    font-size: 13px;
+  }
+
+  input, select, textarea {
+    font-size: 16px; /* 避免 iOS 自動縮放 */
+  }
+
+  button {
+    padding: 12px 20px;
+    font-size: 16px;
+  }
+
+  .add-exercise-form {
+    padding: 16px;
+  }
+
+  .last-record-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    font-size: 13px;
   }
   
   .table-head {
     display: none;
   }
+
   .table-row {
     grid-template-columns: 1fr;
-    gap: 6px;
+    gap: 8px;
+    padding: 12px;
   }
+
   .table-row span {
     display: block;
+    padding: 4px 0;
+  }
+
+  .table-row span:before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #6b8b7e;
+    display: inline-block;
+    min-width: 80px;
+    margin-right: 8px;
+  }
+
+  .sets-display {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .notes-cell {
+    font-size: 12px;
   }
 }
 
