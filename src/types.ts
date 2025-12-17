@@ -17,6 +17,15 @@ export type TrainingLog = {
   createdAt?: string;
 };
 
+export type ReleaseNote = {
+  id: string;
+  version: string;
+  date: string;
+  title: string;
+  changes: string[];
+  type: "feature" | "fix" | "improvement" | "breaking";
+};
+
 export type ApiResult<T> = {
   ok: boolean;
   data?: T;
