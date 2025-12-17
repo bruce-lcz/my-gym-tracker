@@ -3,6 +3,7 @@ import { createLog, fetchLogs } from "./api";
 import { APP_CONFIG } from "./config";
 import { TrainingLog, ReleaseNote } from "./types";
 import { loadExercises, saveCustomExercise, Exercise } from "./exerciseData";
+import { loadChangelog } from "./changelogParser";
 import { 
   Dumbbell, 
   History, 
@@ -15,15 +16,29 @@ import {
   Calendar,
   TrendingUp,
   Edit,
-  Save
+  Save,
+  Menu,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  BarChart3
 } from "lucide-react";
+
+// 取得本地日期（台北時間）格式 YYYY-MM-DD
+const getLocalDate = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 const emptyLog: TrainingLog = {
   actionZh: "",
   actionEn: "",
   targetMuscle: "",
   lastDate: "",
-  currentDate: new Date().toISOString().slice(0, 10),
+  currentDate: getLocalDate(),
   sets: [
     { weight: "", reps: "" },
     { weight: "", reps: "" },
@@ -35,7 +50,7 @@ const emptyLog: TrainingLog = {
 };
 
 function App() {
-  const [activeTab, setActiveTab] = useState<"training" | "history" | "releases">("training");
+  const [activeTab, setActiveTab] = useState<"training" | "history" | "dashboard">("training");
   const [form, setForm] = useState<TrainingLog>(emptyLog);
   const [logs, setLogs] = useState<TrainingLog[]>([]);
   const [loading, setLoading] = useState(false);
@@ -48,6 +63,12 @@ function App() {
   const [exercises, setExercises] = useState<Exercise[]>(() => loadExercises());
   const [showAddExercise, setShowAddExercise] = useState(false);
   const [newExercise, setNewExercise] = useState<Exercise>({ zh: "", en: "", targetMuscle: "" });
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    const saved = localStorage.getItem("sidebarCollapsed");
+    return saved ? JSON.parse(saved) : false;
+  });
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [releaseDrawerOpen, setReleaseDrawerOpen] = useState(false);
   
   // 勵志語錄
   const motivationalQuotes = [
@@ -66,80 +87,8 @@ function App() {
     motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)]
   );
   
-  // Release Notes 相關狀態
-  const [releaseNotes, setReleaseNotes] = useState<ReleaseNote[]>(() => {
-    // 定義當前的版本歷史（這是程式碼中的最新版本）
-    const currentReleases: ReleaseNote[] = [
-      {
-        id: "1",
-        version: "v1.1.0",
-        date: new Date().toISOString().slice(0, 10),
-        title: "圖標系統升級與版本資訊功能",
-        type: "feature",
-        changes: [
-          "整合 Lucide React 圖標庫，提供更美觀的視覺體驗",
-          "新增 Tab 導航系統，分離新增訓練、訓練紀錄和版本資訊",
-          "優化所有按鈕設計，加入對應的圖標提升使用體驗",
-          "新增勵志語錄系統，每次開啟隨機顯示激勵文字",
-          "新增版本資訊頁面，展示應用功能與更新歷史"
-        ]
-      },
-      {
-        id: "0",
-        version: "v1.0.0",
-        date: "2025-12-17",
-        title: "健身追蹤器首次發布",
-        type: "feature",
-        changes: [
-          "基本訓練記錄功能 - 記錄動作、組數、重量、RPE",
-          "訓練歷史查詢 - 查看所有歷史訓練記錄",
-          "Google Sheets 整合 - 雲端同步訓練數據",
-          "深色/淺色主題切換 - 根據喜好自訂介面",
-          "自訂動作功能 - 可新增個人化的訓練動作",
-          "響應式設計 - 完美支援手機、平板、桌面裝置"
-        ]
-      }
-    ];
-    
-    const saved = localStorage.getItem("releaseNotes");
-    
-    // 如果沒有儲存的資料，直接使用當前版本
-    if (!saved) {
-      localStorage.setItem("releaseNotes", JSON.stringify(currentReleases));
-      return currentReleases;
-    }
-    
-    // 檢查儲存的版本是否與當前版本一致
-    const savedReleases: ReleaseNote[] = JSON.parse(saved);
-    const latestSavedVersion = savedReleases[0]?.version || "";
-    const latestCurrentVersion = currentReleases[0]?.version || "";
-    
-    // 如果版本號不同，或者內容長度不同，表示有更新，使用當前版本並合併用戶新增的版本
-    if (latestSavedVersion !== latestCurrentVersion || 
-        savedReleases.length < currentReleases.length ||
-        JSON.stringify(savedReleases.find(r => r.id === "1")) !== JSON.stringify(currentReleases[0])) {
-      
-      // 保留用戶自己新增的版本紀錄（id 不在預設版本中的）
-      const defaultIds = currentReleases.map(r => r.id);
-      const userAddedReleases = savedReleases.filter(r => !defaultIds.includes(r.id));
-      
-      // 合併：用戶新增的版本 + 當前預設版本
-      const mergedReleases = [...userAddedReleases, ...currentReleases];
-      localStorage.setItem("releaseNotes", JSON.stringify(mergedReleases));
-      return mergedReleases;
-    }
-    
-    // 版本一致，使用儲存的資料
-    return savedReleases;
-  });
-  const [showAddRelease, setShowAddRelease] = useState(false);
-  const [newRelease, setNewRelease] = useState<Omit<ReleaseNote, "id">>({
-    version: "",
-    date: new Date().toISOString().slice(0, 10),
-    title: "",
-    changes: [""],
-    type: "feature"
-  });
+  // Release Notes 相關狀態（從 CHANGELOG.md 載入）
+  const [releaseNotes, setReleaseNotes] = useState<ReleaseNote[]>([]);
 
   const disabled = useMemo(() => {
     return !form.actionZh || !form.currentDate;
@@ -164,8 +113,23 @@ function App() {
     load();
   }, []);
 
+  // 載入 CHANGELOG.md 版本紀錄
+  useEffect(() => {
+    loadChangelog().then(releases => {
+      if (releases.length > 0) {
+        setReleaseNotes(releases);
+      }
+    });
+  }, []);
+
   const toggleTheme = () => {
     setTheme(prev => (prev === "light" ? "dark" : "light"));
+  };
+
+  const toggleSidebar = () => {
+    const newState = !sidebarCollapsed;
+    setSidebarCollapsed(newState);
+    localStorage.setItem("sidebarCollapsed", JSON.stringify(newState));
   };
 
   const handleExerciseSelect = (value: string) => {
@@ -256,100 +220,119 @@ function App() {
     if (refresh.ok && refresh.data) setLogs(refresh.data);
   };
 
-  // Release Notes 處理函數
-  const handleAddRelease = () => {
-    if (!newRelease.version.trim() || !newRelease.title.trim()) {
-      setError("請填寫版本號和標題");
-      return;
-    }
-    const release: ReleaseNote = {
-      id: Date.now().toString(),
-      ...newRelease,
-      changes: newRelease.changes.filter(c => c.trim() !== "")
-    };
-    const updated = [release, ...releaseNotes];
-    setReleaseNotes(updated);
-    localStorage.setItem("releaseNotes", JSON.stringify(updated));
-    setNewRelease({
-      version: "",
-      date: new Date().toISOString().slice(0, 10),
-      title: "",
-      changes: [""],
-      type: "feature"
-    });
-    setShowAddRelease(false);
-    setMessage("已新增版本紀錄！");
-    setTimeout(() => setMessage(null), 3000);
-  };
-
-  const handleDeleteRelease = (id: string) => {
-    const updated = releaseNotes.filter(r => r.id !== id);
-    setReleaseNotes(updated);
-    localStorage.setItem("releaseNotes", JSON.stringify(updated));
-    setMessage("已刪除版本紀錄");
-    setTimeout(() => setMessage(null), 3000);
-  };
-
-  const updateReleaseChange = (index: number, value: string) => {
-    const changes = [...newRelease.changes];
-    changes[index] = value;
-    setNewRelease({ ...newRelease, changes });
-  };
-
-  const addReleaseChange = () => {
-    setNewRelease({ ...newRelease, changes: [...newRelease.changes, ""] });
-  };
-
-  const removeReleaseChange = (index: number) => {
-    if (newRelease.changes.length <= 1) return;
-    const changes = newRelease.changes.filter((_, i) => i !== index);
-    setNewRelease({ ...newRelease, changes });
-  };
-
   return (
-    <div className="page">
-      <header>
-        <div className="header-top">
-          <div>
-            <h1><Dumbbell className="header-icon" /> 健身紀錄</h1>
-            <p className="motivational-quote">{currentQuote}</p>
+    <div className="app-container">
+      {/* Mobile Sidebar Overlay */}
+      <div 
+        className={`mobile-sidebar-overlay ${mobileSidebarOpen ? "open" : ""}`} 
+        onClick={() => setMobileSidebarOpen(false)} 
+      />
+      
+      {/* Sidebar */}
+      <aside className={`sidebar ${sidebarCollapsed ? "collapsed" : ""} ${mobileSidebarOpen ? "mobile-open" : ""}`}>
+        <div className="sidebar-header">
+          <div className="sidebar-icon">
+            <Dumbbell size={24} />
           </div>
-          <button type="button" className="theme-toggle" onClick={toggleTheme} aria-label="切換主題">
-            {theme === "light" ? <Moon size={20} /> : <Sun size={20} />}
+          <button 
+            className="sidebar-toggle desktop-only" 
+            onClick={toggleSidebar}
+            aria-label={sidebarCollapsed ? "展開選單" : "收合選單"}
+          >
+            {sidebarCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+          </button>
+          <button 
+            className="sidebar-close mobile-only" 
+            onClick={() => setMobileSidebarOpen(false)}
+            aria-label="關閉選單"
+          >
+            <X size={20} />
           </button>
         </div>
-        {!APP_CONFIG.apiBase && (
-          <p className="warn">尚未設定 API URL，請設定 .env 再重新整理</p>
-        )}
         
-        {/* Tab Navigation */}
-        <nav className="tabs">
+        <nav className="sidebar-nav">
           <button 
-            className={`tab ${activeTab === "training" ? "active" : ""}`}
-            onClick={() => setActiveTab("training")}
+            className={`sidebar-item ${activeTab === "dashboard" ? "active" : ""}`}
+            onClick={() => {
+              setActiveTab("dashboard");
+              setMobileSidebarOpen(false);
+            }}
+            title="統計儀表板"
           >
-            <TrendingUp size={18} />
-            <span>新增訓練</span>
-          </button>
-          <button 
-            className={`tab ${activeTab === "history" ? "active" : ""}`}
-            onClick={() => setActiveTab("history")}
-          >
-            <History size={18} />
-            <span>訓練紀錄</span>
-          </button>
-          <button 
-            className={`tab ${activeTab === "releases" ? "active" : ""}`}
-            onClick={() => setActiveTab("releases")}
-          >
-            <FileText size={18} />
-            <span>目前版本</span>
+            <BarChart3 size={20} />
+            {!sidebarCollapsed && <span>統計儀表板</span>}
           </button>
         </nav>
-      </header>
 
-      {/* Training Form Tab */}
-      {activeTab === "training" && (
+        <div className="sidebar-footer">
+          <button 
+            className="sidebar-item" 
+            onClick={() => {
+              setReleaseDrawerOpen(true);
+              setMobileSidebarOpen(false);
+            }}
+            title="版本紀錄"
+          >
+            <FileText size={20} />
+            {!sidebarCollapsed && <span>版本紀錄</span>}
+          </button>
+          <button 
+            className="sidebar-item theme-toggle-sidebar" 
+            onClick={() => {
+              toggleTheme();
+              setMobileSidebarOpen(false);
+            }}
+            title={theme === "light" ? "切換到深色模式" : "切換到淺色模式"}
+          >
+            {theme === "light" ? <Moon size={20} /> : <Sun size={20} />}
+            {!sidebarCollapsed && <span>{theme === "light" ? "深色模式" : "淺色模式"}</span>}
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <div className="main-content">
+        <header>
+          <div className="header-top">
+            <button 
+              className="mobile-menu-btn" 
+              onClick={() => setMobileSidebarOpen(true)}
+              aria-label="開啟選單"
+            >
+              <Menu size={24} />
+            </button>
+            <div>
+              <h1>GYM-TRACKER</h1>
+              <p className="motivational-quote">{currentQuote}</p>
+            </div>
+          </div>
+          {!APP_CONFIG.apiBase && (
+            <p className="warn">尚未設定 API URL，請設定 .env 再重新整理</p>
+          )}
+
+          {/* Tab Navigation for Training & History */}
+          {activeTab !== "dashboard" && (
+            <nav className="tabs">
+              <button 
+                className={`tab ${activeTab === "training" ? "active" : ""}`}
+                onClick={() => setActiveTab("training")}
+              >
+                <TrendingUp size={18} />
+                <span>新增訓練</span>
+              </button>
+              <button 
+                className={`tab ${activeTab === "history" ? "active" : ""}`}
+                onClick={() => setActiveTab("history")}
+              >
+                <History size={18} />
+                <span>訓練紀錄</span>
+              </button>
+            </nav>
+          )}
+        </header>
+
+        {/* Training Form Tab */}
+        {activeTab === "training" && (
         <section className="card">
           <h2><Edit size={22} className="section-icon" /> 新增 / 更新紀錄</h2>
         <form onSubmit={handleSubmit} className="grid">
@@ -524,10 +507,10 @@ function App() {
           </div>
         </form>
       </section>
-      )}
+        )}
 
-      {/* History Tab */}
-      {activeTab === "history" && (
+        {/* History Tab */}
+        {activeTab === "history" && (
         <section className="card">
           <h2><History size={22} className="section-icon" /> 最近紀錄</h2>
         {loading ? (
@@ -565,15 +548,37 @@ function App() {
               </div>
             ))}
           </div>
-        )}
+          )}
         </section>
-      )}
+        )}
 
-      {/* Release Notes Tab */}
-      {activeTab === "releases" && (
-        <section className="card">
-          <h2><FileText size={22} className="section-icon" /> 目前版本</h2>
-          
+        {/* Dashboard Tab (Placeholder) */}
+        {activeTab === "dashboard" && (
+          <section className="card">
+            <h2><BarChart3 size={22} className="section-icon" /> 統計儀表板</h2>
+            <div style={{ padding: "40px", textAlign: "center", color: "#8a9188" }}>
+              <BarChart3 size={64} style={{ margin: "0 auto 20px", opacity: 0.5 }} />
+              <p style={{ fontSize: "18px", fontWeight: 600 }}>統計儀表板功能開發中...</p>
+              <p style={{ fontSize: "14px", marginTop: "8px" }}>即將推出訓練數據分析與圖表展示</p>
+            </div>
+          </section>
+        )}
+      </div>
+
+      {/* Release Notes Drawer */}
+      <div className={`drawer-overlay ${releaseDrawerOpen ? "open" : ""}`} onClick={() => setReleaseDrawerOpen(false)} />
+      <aside className={`drawer ${releaseDrawerOpen ? "open" : ""}`}>
+        <div className="drawer-header">
+          <h2><FileText size={22} /> 版本紀錄</h2>
+          <button 
+            className="drawer-close" 
+            onClick={() => setReleaseDrawerOpen(false)}
+            aria-label="關閉版本紀錄"
+          >
+            <X size={24} />
+          </button>
+        </div>
+        <div className="drawer-content">
           {releaseNotes.length === 0 ? (
             <p>目前沒有版本紀錄</p>
           ) : (
@@ -615,8 +620,8 @@ function App() {
               ))}
             </div>
           )}
-        </section>
-      )}
+        </div>
+      </aside>
     </div>
   );
 }
