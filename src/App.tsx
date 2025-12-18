@@ -4,14 +4,16 @@ import { APP_CONFIG } from "./config";
 import { TrainingLog, ReleaseNote } from "./types";
 import { loadExercises, saveCustomExercise, Exercise } from "./exerciseData";
 import { loadChangelog } from "./changelogParser";
-import { 
-  Dumbbell, 
-  History, 
-  FileText, 
-  Moon, 
-  Sun, 
-  Plus, 
-  Trash2, 
+import { MOCK_LOGS } from "./mockData";
+import Dashboard from "./Dashboard";
+import {
+  Dumbbell,
+  History,
+  FileText,
+  Moon,
+  Sun,
+  Plus,
+  Trash2,
   Check,
   Calendar,
   TrendingUp,
@@ -69,7 +71,7 @@ function App() {
   });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [releaseDrawerOpen, setReleaseDrawerOpen] = useState(false);
-  
+
   // 勵志語錄
   const motivationalQuotes = [
     "💪 今天的汗水，是明天的成就！",
@@ -83,10 +85,10 @@ function App() {
     "🎯 專注當下，成就未來",
     "⭐ 你比你想像的更強大"
   ];
-  const [currentQuote] = useState(() => 
+  const [currentQuote] = useState(() =>
     motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)]
   );
-  
+
   // Release Notes 相關狀態（從 CHANGELOG.md 載入）
   const [releaseNotes, setReleaseNotes] = useState<ReleaseNote[]>([]);
 
@@ -223,35 +225,35 @@ function App() {
   return (
     <div className="app-container">
       {/* Mobile Sidebar Overlay */}
-      <div 
-        className={`mobile-sidebar-overlay ${mobileSidebarOpen ? "open" : ""}`} 
-        onClick={() => setMobileSidebarOpen(false)} 
+      <div
+        className={`mobile-sidebar-overlay ${mobileSidebarOpen ? "open" : ""}`}
+        onClick={() => setMobileSidebarOpen(false)}
       />
-      
+
       {/* Sidebar */}
       <aside className={`sidebar ${sidebarCollapsed ? "collapsed" : ""} ${mobileSidebarOpen ? "mobile-open" : ""}`}>
         <div className="sidebar-header">
           <div className="sidebar-icon">
             <Dumbbell size={24} />
           </div>
-          <button 
-            className="sidebar-toggle desktop-only" 
+          <button
+            className="sidebar-toggle desktop-only"
             onClick={toggleSidebar}
             aria-label={sidebarCollapsed ? "展開選單" : "收合選單"}
           >
             {sidebarCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
           </button>
-          <button 
-            className="sidebar-close mobile-only" 
+          <button
+            className="sidebar-close mobile-only"
             onClick={() => setMobileSidebarOpen(false)}
             aria-label="關閉選單"
           >
             <X size={20} />
           </button>
         </div>
-        
+
         <nav className="sidebar-nav">
-          <button 
+          <button
             className={`sidebar-item ${activeTab === "dashboard" ? "active" : ""}`}
             onClick={() => {
               setActiveTab("dashboard");
@@ -265,8 +267,8 @@ function App() {
         </nav>
 
         <div className="sidebar-footer">
-          <button 
-            className="sidebar-item" 
+          <button
+            className="sidebar-item"
             onClick={() => {
               setReleaseDrawerOpen(true);
               setMobileSidebarOpen(false);
@@ -276,8 +278,8 @@ function App() {
             <FileText size={20} />
             {!sidebarCollapsed && <span>版本紀錄</span>}
           </button>
-          <button 
-            className="sidebar-item theme-toggle-sidebar" 
+          <button
+            className="sidebar-item theme-toggle-sidebar"
             onClick={() => {
               toggleTheme();
               setMobileSidebarOpen(false);
@@ -294,8 +296,8 @@ function App() {
       <div className="main-content">
         <header>
           <div className="header-top">
-            <button 
-              className="mobile-menu-btn" 
+            <button
+              className="mobile-menu-btn"
               onClick={() => setMobileSidebarOpen(true)}
               aria-label="開啟選單"
             >
@@ -311,257 +313,255 @@ function App() {
           )}
 
           {/* Tab Navigation for Training & History */}
-          {activeTab !== "dashboard" && (
-            <nav className="tabs">
-              <button 
-                className={`tab ${activeTab === "training" ? "active" : ""}`}
-                onClick={() => setActiveTab("training")}
-              >
-                <TrendingUp size={18} />
-                <span>新增訓練</span>
-              </button>
-              <button 
-                className={`tab ${activeTab === "history" ? "active" : ""}`}
-                onClick={() => setActiveTab("history")}
-              >
-                <History size={18} />
-                <span>訓練紀錄</span>
-              </button>
-            </nav>
-          )}
+          <nav className="tabs">
+            <button
+              className={`tab ${activeTab === "training" ? "active" : ""}`}
+              onClick={() => setActiveTab("training")}
+            >
+              <TrendingUp size={18} />
+              <span>新增訓練</span>
+            </button>
+            <button
+              className={`tab ${activeTab === "history" ? "active" : ""}`}
+              onClick={() => setActiveTab("history")}
+            >
+              <History size={18} />
+              <span>訓練紀錄</span>
+            </button>
+          </nav>
         </header>
 
         {/* Training Form Tab */}
         {activeTab === "training" && (
-        <section className="card">
-          <h2><Edit size={22} className="section-icon" /> 新增 / 更新紀錄</h2>
-        <form onSubmit={handleSubmit} className="grid">
-          <label>
-            動作名稱
-            <div className="select-wrapper">
-              <select
-                value={form.actionZh}
-                onChange={e => handleExerciseSelect(e.target.value)}
-                required
-              >
-                <option value="">-- 選擇動作 --</option>
-                {exercises.map((ex, idx) => (
-                  <option key={idx} value={ex.zh}>
-                    {ex.zh} {ex.en ? `/ ${ex.en}` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </label>
-          <label>
-            <span style={{ opacity: 0.6 }}>目標肌群（自動填入）</span>
-            <input
-              value={form.targetMuscle}
-              readOnly
-              placeholder="選擇動作後自動填入"
-              style={{ cursor: "not-allowed", opacity: 0.7 }}
-            />
-          </label>
-          <div className="add-exercise-btn-wrapper">
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => setShowAddExercise(!showAddExercise)}
-              style={{ display: "flex", alignItems: "center", gap: "6px" }}
-            >
-              {showAddExercise ? <Trash2 size={16} /> : <Plus size={16} />}
-              {showAddExercise ? "取消新增" : "新增自訂動作"}
-            </button>
-          </div>
-          {showAddExercise && (
-            <>
-              <div className="full add-exercise-form">
-                <h3>新增自訂動作</h3>
-                <div className="grid">
-                  <label>
-                    動作名稱 (中文) *
-                    <input
-                      value={newExercise.zh}
-                      onChange={e => setNewExercise(prev => ({ ...prev, zh: e.target.value }))}
-                      placeholder="如：啞鈴飛鳥"
-                    />
-                  </label>
-                  <label>
-                    動作名稱 (英文)
-                    <input
-                      value={newExercise.en}
-                      onChange={e => setNewExercise(prev => ({ ...prev, en: e.target.value }))}
-                      placeholder="如：Dumbbell Fly"
-                    />
-                  </label>
-                  <label>
-                    目標肌群
-                    <input
-                      value={newExercise.targetMuscle}
-                      onChange={e => setNewExercise(prev => ({ ...prev, targetMuscle: e.target.value }))}
-                      placeholder="如：胸大肌"
-                    />
-                  </label>
-                  <div className="add-exercise-actions">
-                    <button type="button" onClick={handleAddExercise} className="btn-primary" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <Check size={16} />
-                      確認新增
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-
-          {form.lastDate && (
-            <div className="last-record-info">
-              <Calendar size={16} style={{ marginRight: "4px" }} />
-              <span className="info-label">上次訓練：</span>
-              <span className="info-value">{form.lastDate}</span>
-            </div>
-          )}
-          <label>
-            訓練日期
-            <input
-              type="date"
-              value={form.currentDate}
-              onChange={e => onChange("currentDate", e.target.value)}
-              required
-            />
-          </label>
-
-          <div className="full sets-section">
-            <h3>訓練組數</h3>
-            {form.sets.map((set, idx) => (
-              <div key={idx} className="set-row">
-                <span className="set-label">Set {idx + 1}</span>
-                <label>
-                  重量 (kg)
-                  <input
-                    type="number"
-                    step="0.5"
-                    value={set.weight}
-                    onChange={e => updateSet(idx, "weight", e.target.value)}
-                    placeholder="80"
-                  />
-                </label>
-                <label>
-                  次數 (reps)
-                  <input
-                    type="number"
-                    value={set.reps}
-                    onChange={e => updateSet(idx, "reps", e.target.value)}
-                    placeholder="10"
-                  />
-                </label>
-                {form.sets.length > 1 && (
-                  <button
-                    type="button"
-                    className="btn-remove"
-                    onClick={() => removeSet(idx)}
-                    aria-label="移除此組"
+          <section className="card">
+            <h2><Edit size={22} className="section-icon" /> 新增 / 更新紀錄</h2>
+            <form onSubmit={handleSubmit} className="grid">
+              <label>
+                動作名稱
+                <div className="select-wrapper">
+                  <select
+                    value={form.actionZh}
+                    onChange={e => handleExerciseSelect(e.target.value)}
+                    required
                   >
-                    <Trash2 size={16} />
-                  </button>
-                )}
+                    <option value="">-- 選擇動作 --</option>
+                    {exercises.map((ex, idx) => (
+                      <option key={idx} value={ex.zh}>
+                        {ex.zh} {ex.en ? `/ ${ex.en}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </label>
+              <label>
+                <span style={{ opacity: 0.6 }}>目標肌群（自動填入）</span>
+                <input
+                  value={form.targetMuscle}
+                  readOnly
+                  placeholder="選擇動作後自動填入"
+                  style={{ cursor: "not-allowed", opacity: 0.7 }}
+                />
+              </label>
+              <div className="add-exercise-btn-wrapper">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setShowAddExercise(!showAddExercise)}
+                  style={{ display: "flex", alignItems: "center", gap: "6px" }}
+                >
+                  {showAddExercise ? <Trash2 size={16} /> : <Plus size={16} />}
+                  {showAddExercise ? "取消新增" : "新增自訂動作"}
+                </button>
               </div>
-            ))}
-            <button type="button" className="btn-secondary" onClick={addSet} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <Plus size={16} />
-              新增組數
-            </button>
-          </div>
-          <label>
-            RPE (強度 1-10)
-            <input
-              type="number"
-              min="1"
-              max="10"
-              step="0.5"
-              value={form.rpe}
-              onChange={e => onChange("rpe", e.target.value)}
-              placeholder="8"
-            />
-          </label>
-          <label className="full">
-            備註
-            <textarea
-              value={form.notes}
-              onChange={e => onChange("notes", e.target.value)}
-              placeholder="今天狀態不錯 / 肩膀有點痠..."
-              rows={2}
-            />
-          </label>
-          <label className="full">
-            下次目標
-            <input value={form.nextTarget} onChange={e => onChange("nextTarget", e.target.value)} />
-          </label>
+              {showAddExercise && (
+                <>
+                  <div className="full add-exercise-form">
+                    <h3>新增自訂動作</h3>
+                    <div className="grid">
+                      <label>
+                        動作名稱 (中文) *
+                        <input
+                          value={newExercise.zh}
+                          onChange={e => setNewExercise(prev => ({ ...prev, zh: e.target.value }))}
+                          placeholder="如：啞鈴飛鳥"
+                        />
+                      </label>
+                      <label>
+                        動作名稱 (英文)
+                        <input
+                          value={newExercise.en}
+                          onChange={e => setNewExercise(prev => ({ ...prev, en: e.target.value }))}
+                          placeholder="如：Dumbbell Fly"
+                        />
+                      </label>
+                      <label>
+                        目標肌群
+                        <input
+                          value={newExercise.targetMuscle}
+                          onChange={e => setNewExercise(prev => ({ ...prev, targetMuscle: e.target.value }))}
+                          placeholder="如：胸大肌"
+                        />
+                      </label>
+                      <div className="add-exercise-actions">
+                        <button type="button" onClick={handleAddExercise} className="btn-primary" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <Check size={16} />
+                          確認新增
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
 
-          <div className="actions full">
-            <button type="submit" disabled={disabled || saving}>
-              <Save size={18} style={{ marginRight: "6px" }} />
-              {saving ? "儲存中..." : "儲存"}
-            </button>
-            {error && <span className="error">{error}</span>}
-            {message && <span className="ok">{message}</span>}
-          </div>
-        </form>
-      </section>
+              {form.lastDate && (
+                <div className="last-record-info">
+                  <Calendar size={16} style={{ marginRight: "4px" }} />
+                  <span className="info-label">上次訓練：</span>
+                  <span className="info-value">{form.lastDate}</span>
+                </div>
+              )}
+              <label>
+                訓練日期
+                <input
+                  type="date"
+                  value={form.currentDate}
+                  onChange={e => onChange("currentDate", e.target.value)}
+                  required
+                />
+              </label>
+
+              <div className="full sets-section">
+                <h3>訓練組數</h3>
+                {form.sets.map((set, idx) => (
+                  <div key={idx} className="set-row">
+                    <span className="set-label">Set {idx + 1}</span>
+                    <label>
+                      重量 (kg)
+                      <input
+                        type="number"
+                        step="0.5"
+                        value={set.weight}
+                        onChange={e => updateSet(idx, "weight", e.target.value)}
+                        placeholder="80"
+                      />
+                    </label>
+                    <label>
+                      次數 (reps)
+                      <input
+                        type="number"
+                        value={set.reps}
+                        onChange={e => updateSet(idx, "reps", e.target.value)}
+                        placeholder="10"
+                      />
+                    </label>
+                    {form.sets.length > 1 && (
+                      <button
+                        type="button"
+                        className="btn-remove"
+                        onClick={() => removeSet(idx)}
+                        aria-label="移除此組"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button type="button" className="btn-secondary" onClick={addSet} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <Plus size={16} />
+                  新增組數
+                </button>
+              </div>
+              <label>
+                RPE (強度 1-10)
+                <input
+                  type="number"
+                  min="1"
+                  max="10"
+                  step="0.5"
+                  value={form.rpe}
+                  onChange={e => onChange("rpe", e.target.value)}
+                  placeholder="8"
+                />
+              </label>
+              <label className="full">
+                備註
+                <textarea
+                  value={form.notes}
+                  onChange={e => onChange("notes", e.target.value)}
+                  placeholder="今天狀態不錯 / 肩膀有點痠..."
+                  rows={2}
+                />
+              </label>
+              <label className="full">
+                下次目標
+                <input value={form.nextTarget} onChange={e => onChange("nextTarget", e.target.value)} />
+              </label>
+
+              <div className="actions full">
+                <button type="submit" disabled={disabled || saving}>
+                  <Save size={18} style={{ marginRight: "6px" }} />
+                  {saving ? "儲存中..." : "儲存"}
+                </button>
+                {error && <span className="error">{error}</span>}
+                {message && <span className="ok">{message}</span>}
+              </div>
+            </form>
+          </section>
         )}
 
         {/* History Tab */}
         {activeTab === "history" && (
-        <section className="card">
-          <h2><History size={22} className="section-icon" /> 最近紀錄</h2>
-        {loading ? (
-          <p>讀取中...</p>
-        ) : logs.length === 0 ? (
-          <p>目前沒有紀錄</p>
-        ) : (
-          <div className="table">
-            <div className="table-head">
-              <span>日期</span>
-              <span>動作</span>
-              <span>組數詳情</span>
-              <span>RPE</span>
-              <span>備註</span>
-              <span>下次目標</span>
-            </div>
-            {logs.map((row, idx) => (
-              <div className="table-row" key={row.id ?? idx}>
-                <span data-label="日期：">{row.currentDate}</span>
-                <span data-label="動作：">
-                  {row.actionZh}
-                  {row.actionEn ? ` / ${row.actionEn}` : ""}
-                </span>
-                <span className="sets-display" data-label="組數：">
-                  {row.sets && row.sets.length > 0
-                    ? row.sets
-                        .filter(s => s.weight || s.reps)
-                        .map((s, i) => `${i + 1}. ${s.weight}kg×${s.reps}`)
-                        .join(" | ")
-                    : "-"}
-                </span>
-                <span data-label="RPE：">{row.rpe}</span>
-                <span className="notes-cell" data-label="備註：">{row.notes}</span>
-                <span data-label="下次目標：">{row.nextTarget}</span>
+          <section className="card">
+            <h2><History size={22} className="section-icon" /> 最近紀錄</h2>
+            {loading ? (
+              <p>讀取中...</p>
+            ) : logs.length === 0 ? (
+              <p>目前沒有紀錄</p>
+            ) : (
+              <div className="table">
+                <div className="table-head">
+                  <span>日期</span>
+                  <span>動作</span>
+                  <span>組數詳情</span>
+                  <span>RPE</span>
+                  <span>備註</span>
+                  <span>下次目標</span>
+                </div>
+                {logs.map((row, idx) => (
+                  <div className="table-row" key={row.id ?? idx}>
+                    <span data-label="日期：">{row.currentDate}</span>
+                    <span data-label="動作：">
+                      {row.actionZh}
+                      {row.actionEn ? ` / ${row.actionEn}` : ""}
+                    </span>
+                    <span className="sets-display" data-label="組數：">
+                      {row.sets && row.sets.length > 0
+                        ? row.sets
+                          .filter(s => s.weight || s.reps)
+                          .map((s, i) => `${i + 1}. ${s.weight}kg×${s.reps}`)
+                          .join(" | ")
+                        : "-"}
+                    </span>
+                    <span data-label="RPE：">{row.rpe}</span>
+                    <span className="notes-cell" data-label="備註：">{row.notes}</span>
+                    <span data-label="下次目標：">{row.nextTarget}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          )}
-        </section>
+            )}
+          </section>
         )}
 
-        {/* Dashboard Tab (Placeholder) */}
+        {/* Dashboard Tab */}
         {activeTab === "dashboard" && (
-          <section className="card">
-            <h2><BarChart3 size={22} className="section-icon" /> 統計儀表板</h2>
-            <div style={{ padding: "40px", textAlign: "center", color: "#8a9188" }}>
-              <BarChart3 size={64} style={{ margin: "0 auto 20px", opacity: 0.5 }} />
-              <p style={{ fontSize: "18px", fontWeight: 600 }}>統計儀表板功能開發中...</p>
-              <p style={{ fontSize: "14px", marginTop: "8px" }}>即將推出訓練數據分析與圖表展示</p>
-            </div>
-          </section>
+          <Dashboard
+            logs={logs}
+            onLoadDemoData={() => {
+              setLogs(MOCK_LOGS);
+              setMessage("已載入範例資料 (僅供瀏覽)");
+              setTimeout(() => setMessage(null), 3000);
+            }}
+          />
         )}
       </div>
 
@@ -570,8 +570,8 @@ function App() {
       <aside className={`drawer ${releaseDrawerOpen ? "open" : ""}`}>
         <div className="drawer-header">
           <h2><FileText size={22} /> 版本紀錄</h2>
-          <button 
-            className="drawer-close" 
+          <button
+            className="drawer-close"
             onClick={() => setReleaseDrawerOpen(false)}
             aria-label="關閉版本紀錄"
           >
