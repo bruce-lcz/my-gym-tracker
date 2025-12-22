@@ -24,7 +24,10 @@ import {
   ChevronLeft,
   ChevronRight,
   BarChart3,
-  Users
+  Users,
+  Timer,
+  Activity,
+  Gauge
 } from "lucide-react";
 
 // 取得本地日期（台北時間）格式 YYYY-MM-DD
@@ -64,7 +67,8 @@ function App() {
   );
   const [exercises, setExercises] = useState<Exercise[]>(() => loadExercises());
   const [showAddExercise, setShowAddExercise] = useState(false);
-  const [newExercise, setNewExercise] = useState<Exercise>({ zh: "", en: "", targetMuscle: "" });
+  const [newExercise, setNewExercise] = useState<Exercise>({ zh: "", en: "", targetMuscle: "", type: "strength" });
+  const [currentExerciseType, setCurrentExerciseType] = useState<"strength" | "cardio">("strength");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem("sidebarCollapsed");
     return saved ? JSON.parse(saved) : false;
@@ -149,6 +153,8 @@ function App() {
     const selected = exercises.find(ex => ex.zh === value);
     if (selected) {
       const today = getLocalDate();
+      const type = selected.type || "strength";
+      setCurrentExerciseType(type);
 
       // Detect if we have done this exercise today
       const todayLog = logs.find(log =>
@@ -166,7 +172,8 @@ function App() {
         actionZh: selected.zh,
         actionEn: selected.en,
         targetMuscle: selected.targetMuscle,
-        lastDate: lastLog?.currentDate || ""
+        lastDate: lastLog?.currentDate || "",
+        sets: [{ weight: "", reps: "", incline: "", speed: "", time: "" }] // Reset sets structure
       }));
     }
   };
@@ -184,12 +191,13 @@ function App() {
       actionEn: newExercise.en,
       targetMuscle: newExercise.targetMuscle
     }));
-    setNewExercise({ zh: "", en: "", targetMuscle: "" });
+    setCurrentExerciseType(newExercise.type || "strength");
+    setNewExercise({ zh: "", en: "", targetMuscle: "", type: "strength" });
     setShowAddExercise(false);
     setMessage("已新增動作！");
   };
 
-  const updateSet = (index: number, field: "weight" | "reps", value: string) => {
+  const updateSet = (index: number, field: keyof typeof form.sets[0], value: string) => {
     setForm(prev => {
       const newSets = [...prev.sets];
       newSets[index] = { ...newSets[index], [field]: value };
@@ -200,7 +208,7 @@ function App() {
   const addSet = () => {
     setForm(prev => ({
       ...prev,
-      sets: [...prev.sets, { weight: "", reps: "" }]
+      sets: [...prev.sets, { weight: "", reps: "", incline: "", speed: "", time: "" }]
     }));
   };
 
@@ -221,7 +229,23 @@ function App() {
     setError(null);
     setMessage(null);
     setSaving(true);
-    const res = await createLog(user, form);
+    setSaving(true);
+
+    // Prepare payload (Map Cardio fields to weight/reps for backend compatibility if needed)
+    // Only if the fields are empty in weight/reps but present in speed/time
+    const payload = { ...form };
+    if (currentExerciseType === "cardio") {
+      payload.sets = form.sets.map(s => ({
+        ...s,
+        // Map Cardio data to backend columns
+        // Weight column <- "Spd: X / Inc: Y"
+        weight: s.weight || `Spd:${s.speed || 0} Inc:${s.incline || 0}`,
+        // Reps column <- "Time: Z min"
+        reps: s.reps || `${s.time || 0} min`
+      }));
+    }
+
+    const res = await createLog(user, payload);
     setSaving(false);
     if (!res.ok) {
       setError(res.error ?? "送出失敗");
@@ -232,7 +256,7 @@ function App() {
       ...emptyLog,
       currentDate: form.currentDate,
       sets: [
-        { weight: "", reps: "" }
+        { weight: "", reps: "", incline: "", speed: "", time: "" }
       ]
     });
     setTodayHistory(null); // Clear local "today" visual state until refreshed
@@ -431,6 +455,31 @@ function App() {
                           placeholder="如：胸大肌"
                         />
                       </label>
+                      <label className="full">
+                        類型
+                        <div style={{ display: "flex", gap: "20px", marginTop: "8px" }}>
+                          <label style={{ flexDirection: "row", alignItems: "center", cursor: "pointer" }}>
+                            <input
+                              type="radio"
+                              name="exerciseType"
+                              checked={newExercise.type === "strength" || !newExercise.type}
+                              onChange={() => setNewExercise(prev => ({ ...prev, type: "strength" }))}
+                              style={{ width: "auto", margin: 0 }}
+                            />
+                            <Dumbbell size={16} /> 重量訓練
+                          </label>
+                          <label style={{ flexDirection: "row", alignItems: "center", cursor: "pointer" }}>
+                            <input
+                              type="radio"
+                              name="exerciseType"
+                              checked={newExercise.type === "cardio"}
+                              onChange={() => setNewExercise(prev => ({ ...prev, type: "cardio" }))}
+                              style={{ width: "auto", margin: 0 }}
+                            />
+                            <Activity size={16} /> 有氧運動
+                          </label>
+                        </div>
+                      </label>
                       <div className="add-exercise-actions">
                         <button type="button" onClick={handleAddExercise} className="btn-primary" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                           <Check size={16} />
@@ -484,25 +533,62 @@ function App() {
                   return (
                     <div key={idx} className="set-row">
                       <span className="set-label">Set {setNumber}</span>
-                      <label>
-                        重量 (kg)
-                        <input
-                          type="number"
-                          step="0.5"
-                          value={set.weight}
-                          onChange={e => updateSet(idx, "weight", e.target.value)}
-                          placeholder="80"
-                        />
-                      </label>
-                      <label>
-                        次數 (reps)
-                        <input
-                          type="number"
-                          value={set.reps}
-                          onChange={e => updateSet(idx, "reps", e.target.value)}
-                          placeholder="10"
-                        />
-                      </label>
+
+                      {currentExerciseType === "strength" ? (
+                        <>
+                          <label>
+                            重量 (kg)
+                            <input
+                              type="number"
+                              step="0.5"
+                              value={set.weight}
+                              onChange={e => updateSet(idx, "weight", e.target.value)}
+                              placeholder="80"
+                            />
+                          </label>
+                          <label>
+                            次數 (reps)
+                            <input
+                              type="number"
+                              value={set.reps}
+                              onChange={e => updateSet(idx, "reps", e.target.value)}
+                              placeholder="10"
+                            />
+                          </label>
+                        </>
+                      ) : (
+                        <>
+                          <label>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Gauge size={14} /> 速度</span>
+                            <input
+                              type="number"
+                              step="0.1"
+                              value={set.speed}
+                              onChange={e => updateSet(idx, "speed", e.target.value)}
+                              placeholder="kph"
+                            />
+                          </label>
+                          <label>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><TrendingUp size={14} /> 坡度</span>
+                            <input
+                              type="number"
+                              step="0.5"
+                              value={set.incline}
+                              onChange={e => updateSet(idx, "incline", e.target.value)}
+                              placeholder="%"
+                            />
+                          </label>
+                          <label>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Timer size={14} /> 時間</span>
+                            <input
+                              type="number"
+                              value={set.time}
+                              onChange={e => updateSet(idx, "time", e.target.value)}
+                              placeholder="min"
+                            />
+                          </label>
+                        </>
+                      )}
                       {form.sets.length > 1 && (
                         <button
                           type="button"
@@ -572,31 +658,44 @@ function App() {
                 <div className="table-head">
                   <span>日期</span>
                   <span>動作</span>
-                  <span>組數詳情</span>
+                  <span>內容詳情</span>
                   <span>RPE</span>
                   <span>備註</span>
                   <span>下次目標</span>
                 </div>
-                {logs.map((row, idx) => (
-                  <div className="table-row" key={row.id ?? idx}>
-                    <span data-label="日期：">{row.currentDate}</span>
-                    <span data-label="動作：">
-                      {row.actionZh}
-                      {row.actionEn ? ` / ${row.actionEn}` : ""}
-                    </span>
-                    <span className="sets-display" data-label="組數：">
-                      {row.sets && row.sets.length > 0
-                        ? row.sets
-                          .filter(s => s.weight || s.reps)
-                          .map((s, i) => `${i + 1}. ${s.weight}kg×${s.reps}`)
-                          .join(" | ")
-                        : "-"}
-                    </span>
-                    <span data-label="RPE：">{row.rpe}</span>
-                    <span className="notes-cell" data-label="備註：">{row.notes}</span>
-                    <span data-label="下次目標：">{row.nextTarget}</span>
-                  </div>
-                ))}
+                {logs.map((row, idx) => {
+                  // Determine display style based on content roughly
+                  const isCardio = row.sets.some(s => s.weight.includes("Spd") || s.reps.includes("min"));
+
+                  return (
+                    <div className="table-row" key={row.id ?? idx}>
+                      <span data-label="日期：">{row.currentDate}</span>
+                      <span data-label="動作：">
+                        {row.actionZh}
+                        {row.actionEn ? ` / ${row.actionEn}` : ""}
+                      </span>
+                      <span className="sets-display" data-label="組數：">
+                        {row.sets && row.sets.length > 0
+                          ? row.sets
+                            .filter(s => s.weight || s.reps)
+                            .map((s, i) => {
+                              if (isCardio) {
+                                // Clean up the cardio display string
+                                // Backend stores: Weight="Spd:6.5 Incline:2", Reps="30 min"
+                                // We can display it cleanly.
+                                return `${i + 1}. ${s.reps} (${s.weight})`;
+                              }
+                              return `${i + 1}. ${s.weight}kg×${s.reps}`;
+                            })
+                            .join(" | ")
+                          : "-"}
+                      </span>
+                      <span data-label="RPE：">{row.rpe}</span>
+                      <span className="notes-cell" data-label="備註：">{row.notes}</span>
+                      <span data-label="下次目標：">{row.nextTarget}</span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </section>

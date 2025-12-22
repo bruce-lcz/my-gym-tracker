@@ -3,6 +3,9 @@ export type User = "Bruce" | "Linda";
 export type SetData = {
   weight: string;
   reps: string;
+  incline?: string;
+  speed?: string;
+  time?: string;
 };
 
 // Frontend logical unit (Session or Action Group)
