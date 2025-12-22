@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createLog, fetchLogs } from "./api";
 import { APP_CONFIG } from "./config";
-import { TrainingLog, ReleaseNote } from "./types";
+import { TrainingLog, ReleaseNote, User } from "./types";
 import { loadExercises, saveCustomExercise, Exercise } from "./exerciseData";
 import { loadChangelog } from "./changelogParser";
 import { MOCK_LOGS } from "./mockData";
@@ -23,7 +23,11 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  BarChart3
+  BarChart3,
+  Users,
+  Timer,
+  Activity,
+  Gauge
 } from "lucide-react";
 
 // 取得本地日期（台北時間）格式 YYYY-MM-DD
@@ -42,8 +46,6 @@ const emptyLog: TrainingLog = {
   lastDate: "",
   currentDate: getLocalDate(),
   sets: [
-    { weight: "", reps: "" },
-    { weight: "", reps: "" },
     { weight: "", reps: "" }
   ],
   rpe: "",
@@ -53,6 +55,7 @@ const emptyLog: TrainingLog = {
 
 function App() {
   const [activeTab, setActiveTab] = useState<"training" | "history" | "dashboard">("training");
+  const [user, setUser] = useState<User>("Bruce");
   const [form, setForm] = useState<TrainingLog>(emptyLog);
   const [logs, setLogs] = useState<TrainingLog[]>([]);
   const [loading, setLoading] = useState(false);
@@ -64,7 +67,8 @@ function App() {
   );
   const [exercises, setExercises] = useState<Exercise[]>(() => loadExercises());
   const [showAddExercise, setShowAddExercise] = useState(false);
-  const [newExercise, setNewExercise] = useState<Exercise>({ zh: "", en: "", targetMuscle: "" });
+  const [newExercise, setNewExercise] = useState<Exercise>({ zh: "", en: "", targetMuscle: "", type: "strength" });
+  const [currentExerciseType, setCurrentExerciseType] = useState<"strength" | "cardio">("strength");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem("sidebarCollapsed");
     return saved ? JSON.parse(saved) : false;
@@ -101,10 +105,15 @@ function App() {
     localStorage.setItem("theme", theme);
   }, [theme]);
 
+  // Sync User Theme
+  useEffect(() => {
+    document.documentElement.setAttribute("data-user", user);
+  }, [user]);
+
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const res = await fetchLogs();
+      const res = await fetchLogs(user);
       if (res.ok && res.data) {
         setLogs(res.data);
       } else {
@@ -113,7 +122,7 @@ function App() {
       setLoading(false);
     };
     load();
-  }, []);
+  }, [user]);
 
   // 載入 CHANGELOG.md 版本紀錄
   useEffect(() => {
@@ -128,18 +137,34 @@ function App() {
     setTheme(prev => (prev === "light" ? "dark" : "light"));
   };
 
+  const toggleUser = () => {
+    setUser(prev => prev === "Bruce" ? "Linda" : "Bruce");
+  };
+
   const toggleSidebar = () => {
     const newState = !sidebarCollapsed;
     setSidebarCollapsed(newState);
     localStorage.setItem("sidebarCollapsed", JSON.stringify(newState));
   };
 
+  const [todayHistory, setTodayHistory] = useState<TrainingLog | null>(null);
+
   const handleExerciseSelect = (value: string) => {
     const selected = exercises.find(ex => ex.zh === value);
     if (selected) {
-      // 找出這個動作的最近一次紀錄
+      const today = getLocalDate();
+      const type = selected.type || "strength";
+      setCurrentExerciseType(type);
+
+      // Detect if we have done this exercise today
+      const todayLog = logs.find(log =>
+        log.actionZh === selected.zh && log.currentDate === today
+      );
+      setTodayHistory(todayLog || null);
+
+      // Find the last record (excluding today to avoid confusion)
       const lastLog = logs
-        .filter(log => log.actionZh === selected.zh)
+        .filter(log => log.actionZh === selected.zh && log.currentDate !== today)
         .sort((a, b) => (b.currentDate || "").localeCompare(a.currentDate || ""))[0];
 
       setForm(prev => ({
@@ -147,7 +172,8 @@ function App() {
         actionZh: selected.zh,
         actionEn: selected.en,
         targetMuscle: selected.targetMuscle,
-        lastDate: lastLog?.currentDate || ""
+        lastDate: lastLog?.currentDate || "",
+        sets: [{ weight: "", reps: "", incline: "", speed: "", time: "" }] // Reset sets structure
       }));
     }
   };
@@ -165,12 +191,13 @@ function App() {
       actionEn: newExercise.en,
       targetMuscle: newExercise.targetMuscle
     }));
-    setNewExercise({ zh: "", en: "", targetMuscle: "" });
+    setCurrentExerciseType(newExercise.type || "strength");
+    setNewExercise({ zh: "", en: "", targetMuscle: "", type: "strength" });
     setShowAddExercise(false);
     setMessage("已新增動作！");
   };
 
-  const updateSet = (index: number, field: "weight" | "reps", value: string) => {
+  const updateSet = (index: number, field: keyof typeof form.sets[0], value: string) => {
     setForm(prev => {
       const newSets = [...prev.sets];
       newSets[index] = { ...newSets[index], [field]: value };
@@ -181,7 +208,7 @@ function App() {
   const addSet = () => {
     setForm(prev => ({
       ...prev,
-      sets: [...prev.sets, { weight: "", reps: "" }]
+      sets: [...prev.sets, { weight: "", reps: "", incline: "", speed: "", time: "" }]
     }));
   };
 
@@ -202,7 +229,23 @@ function App() {
     setError(null);
     setMessage(null);
     setSaving(true);
-    const res = await createLog(form);
+    setSaving(true);
+
+    // Prepare payload (Map Cardio fields to weight/reps for backend compatibility if needed)
+    // Only if the fields are empty in weight/reps but present in speed/time
+    const payload = { ...form };
+    if (currentExerciseType === "cardio") {
+      payload.sets = form.sets.map(s => ({
+        ...s,
+        // Map Cardio data to backend columns
+        // Weight column <- "Spd: X / Inc: Y"
+        weight: s.weight || `Spd:${s.speed || 0} Inc:${s.incline || 0}`,
+        // Reps column <- "Time: Z min"
+        reps: s.reps || `${s.time || 0} min`
+      }));
+    }
+
+    const res = await createLog(user, payload);
     setSaving(false);
     if (!res.ok) {
       setError(res.error ?? "送出失敗");
@@ -213,12 +256,11 @@ function App() {
       ...emptyLog,
       currentDate: form.currentDate,
       sets: [
-        { weight: "", reps: "" },
-        { weight: "", reps: "" },
-        { weight: "", reps: "" }
+        { weight: "", reps: "", incline: "", speed: "", time: "" }
       ]
     });
-    const refresh = await fetchLogs();
+    setTodayHistory(null); // Clear local "today" visual state until refreshed
+    const refresh = await fetchLogs(user);
     if (refresh.ok && refresh.data) setLogs(refresh.data);
   };
 
@@ -277,6 +319,17 @@ function App() {
           >
             <FileText size={20} />
             {!sidebarCollapsed && <span>版本紀錄</span>}
+          </button>
+          <button
+            className="sidebar-item theme-toggle-sidebar"
+            onClick={() => {
+              toggleUser();
+              setMobileSidebarOpen(false);
+            }}
+            title={`切換使用者 (目前: ${user})`}
+          >
+            <Users size={20} />
+            {!sidebarCollapsed && <span>{user}</span>}
           </button>
           <button
             className="sidebar-item theme-toggle-sidebar"
@@ -402,6 +455,31 @@ function App() {
                           placeholder="如：胸大肌"
                         />
                       </label>
+                      <label className="full">
+                        類型
+                        <div style={{ display: "flex", gap: "20px", marginTop: "8px" }}>
+                          <label style={{ flexDirection: "row", alignItems: "center", cursor: "pointer" }}>
+                            <input
+                              type="radio"
+                              name="exerciseType"
+                              checked={newExercise.type === "strength" || !newExercise.type}
+                              onChange={() => setNewExercise(prev => ({ ...prev, type: "strength" }))}
+                              style={{ width: "auto", margin: 0 }}
+                            />
+                            <Dumbbell size={16} /> 重量訓練
+                          </label>
+                          <label style={{ flexDirection: "row", alignItems: "center", cursor: "pointer" }}>
+                            <input
+                              type="radio"
+                              name="exerciseType"
+                              checked={newExercise.type === "cardio"}
+                              onChange={() => setNewExercise(prev => ({ ...prev, type: "cardio" }))}
+                              style={{ width: "auto", margin: 0 }}
+                            />
+                            <Activity size={16} /> 有氧運動
+                          </label>
+                        </div>
+                      </label>
                       <div className="add-exercise-actions">
                         <button type="button" onClick={handleAddExercise} className="btn-primary" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                           <Check size={16} />
@@ -432,40 +510,98 @@ function App() {
 
               <div className="full sets-section">
                 <h3>訓練組數</h3>
-                {form.sets.map((set, idx) => (
-                  <div key={idx} className="set-row">
-                    <span className="set-label">Set {idx + 1}</span>
-                    <label>
-                      重量 (kg)
-                      <input
-                        type="number"
-                        step="0.5"
-                        value={set.weight}
-                        onChange={e => updateSet(idx, "weight", e.target.value)}
-                        placeholder="80"
-                      />
-                    </label>
-                    <label>
-                      次數 (reps)
-                      <input
-                        type="number"
-                        value={set.reps}
-                        onChange={e => updateSet(idx, "reps", e.target.value)}
-                        placeholder="10"
-                      />
-                    </label>
-                    {form.sets.length > 1 && (
-                      <button
-                        type="button"
-                        className="btn-remove"
-                        onClick={() => removeSet(idx)}
-                        aria-label="移除此組"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    )}
+
+                {/* Show Today's History if exists */}
+                {todayHistory && todayHistory.sets.length > 0 && (
+                  <div className="today-history">
+                    <h4 className="today-history-title">
+                      <Calendar size={14} />
+                      今日已完成組數 ({todayHistory.sets.length} 組)
+                    </h4>
+                    <div className="today-sets-list">
+                      {todayHistory.sets.map((s, i) => (
+                        <span key={i} className="today-set-badge">
+                          Set {i + 1}: {s.weight}kg × {s.reps}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                ))}
+                )}
+
+                {form.sets.map((set, idx) => {
+                  const setNumber = (todayHistory?.sets.length || 0) + idx + 1;
+                  return (
+                    <div key={idx} className="set-row">
+                      <span className="set-label">Set {setNumber}</span>
+
+                      {currentExerciseType === "strength" ? (
+                        <>
+                          <label>
+                            重量 (kg)
+                            <input
+                              type="number"
+                              step="0.5"
+                              value={set.weight}
+                              onChange={e => updateSet(idx, "weight", e.target.value)}
+                              placeholder="80"
+                            />
+                          </label>
+                          <label>
+                            次數 (reps)
+                            <input
+                              type="number"
+                              value={set.reps}
+                              onChange={e => updateSet(idx, "reps", e.target.value)}
+                              placeholder="10"
+                            />
+                          </label>
+                        </>
+                      ) : (
+                        <>
+                          <label>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Gauge size={14} /> 速度</span>
+                            <input
+                              type="number"
+                              step="0.1"
+                              value={set.speed}
+                              onChange={e => updateSet(idx, "speed", e.target.value)}
+                              placeholder="kph"
+                            />
+                          </label>
+                          <label>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><TrendingUp size={14} /> 坡度</span>
+                            <input
+                              type="number"
+                              step="0.5"
+                              value={set.incline}
+                              onChange={e => updateSet(idx, "incline", e.target.value)}
+                              placeholder="%"
+                            />
+                          </label>
+                          <label>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Timer size={14} /> 時間</span>
+                            <input
+                              type="number"
+                              value={set.time}
+                              onChange={e => updateSet(idx, "time", e.target.value)}
+                              placeholder="min"
+                            />
+                          </label>
+                        </>
+                      )}
+                      {form.sets.length > 1 && (
+                        <button
+                          type="button"
+                          className="btn-remove"
+                          onClick={() => removeSet(idx)}
+                          aria-label="移除此組"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
                 <button type="button" className="btn-secondary" onClick={addSet} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                   <Plus size={16} />
                   新增組數
@@ -522,31 +658,44 @@ function App() {
                 <div className="table-head">
                   <span>日期</span>
                   <span>動作</span>
-                  <span>組數詳情</span>
+                  <span>內容詳情</span>
                   <span>RPE</span>
                   <span>備註</span>
                   <span>下次目標</span>
                 </div>
-                {logs.map((row, idx) => (
-                  <div className="table-row" key={row.id ?? idx}>
-                    <span data-label="日期：">{row.currentDate}</span>
-                    <span data-label="動作：">
-                      {row.actionZh}
-                      {row.actionEn ? ` / ${row.actionEn}` : ""}
-                    </span>
-                    <span className="sets-display" data-label="組數：">
-                      {row.sets && row.sets.length > 0
-                        ? row.sets
-                          .filter(s => s.weight || s.reps)
-                          .map((s, i) => `${i + 1}. ${s.weight}kg×${s.reps}`)
-                          .join(" | ")
-                        : "-"}
-                    </span>
-                    <span data-label="RPE：">{row.rpe}</span>
-                    <span className="notes-cell" data-label="備註：">{row.notes}</span>
-                    <span data-label="下次目標：">{row.nextTarget}</span>
-                  </div>
-                ))}
+                {logs.map((row, idx) => {
+                  // Determine display style based on content roughly
+                  const isCardio = row.sets.some(s => s.weight.includes("Spd") || s.reps.includes("min"));
+
+                  return (
+                    <div className="table-row" key={row.id ?? idx}>
+                      <span data-label="日期：">{row.currentDate}</span>
+                      <span data-label="動作：">
+                        {row.actionZh}
+                        {row.actionEn ? ` / ${row.actionEn}` : ""}
+                      </span>
+                      <span className="sets-display" data-label="組數：">
+                        {row.sets && row.sets.length > 0
+                          ? row.sets
+                            .filter(s => s.weight || s.reps)
+                            .map((s, i) => {
+                              if (isCardio) {
+                                // Clean up the cardio display string
+                                // Backend stores: Weight="Spd:6.5 Incline:2", Reps="30 min"
+                                // We can display it cleanly.
+                                return `${i + 1}. ${s.reps} (${s.weight})`;
+                              }
+                              return `${i + 1}. ${s.weight}kg×${s.reps}`;
+                            })
+                            .join(" | ")
+                          : "-"}
+                      </span>
+                      <span data-label="RPE：">{row.rpe}</span>
+                      <span className="notes-cell" data-label="備註：">{row.notes}</span>
+                      <span data-label="下次目標：">{row.nextTarget}</span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </section>
@@ -555,6 +704,7 @@ function App() {
         {/* Dashboard Tab */}
         {activeTab === "dashboard" && (
           <Dashboard
+            user={user}
             logs={logs}
             onLoadDemoData={() => {
               setLogs(MOCK_LOGS);

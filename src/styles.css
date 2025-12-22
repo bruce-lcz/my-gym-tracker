@@ -4,8 +4,44 @@
   font-family: 'Nunito', "Noto Sans TC", -apple-system, BlinkMacSystemFont, "Segoe UI Rounded", sans-serif;
   line-height: 1.6;
   color: #4a4845;
-  background: linear-gradient(135deg, #f5f1e8 0%, #ebe4d8 50%, #e8dfd1 100%);
+
+  /* Default Theme (Bruce - Green) */
+  --bg-gradient-start: #f5f1e8;
+  --bg-gradient-mid: #ebe4d8;
+  --bg-gradient-end: #e8dfd1;
+
+  --primary-main: #6b8b7e;
+  --primary-light: #8bb4a5;
+  --primary-dark: #4f7d6d;
+  --primary-header: #7a9b8e;
+
+  --primary-hover: rgba(164, 196, 184, 0.35);
+  /* Based on primary-light */
+  --primary-bg-subtle: rgba(164, 196, 184, 0.2);
+  --primary-shadow: rgba(107, 152, 135, 0.3);
+
+  background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-mid) 50%, var(--bg-gradient-end) 100%);
   background-attachment: fixed;
+}
+
+/* Linda Theme (Maillard / Earthy Brown) */
+[data-user="Linda"] {
+  --primary-main: #8c6b5d;
+  /* Warm Muted Brown */
+  --primary-light: #cbb8ae;
+  /* Beige / Latte */
+  --primary-dark: #5e4035;
+  /* Espresso */
+  --primary-header: #8c6b5d;
+  /* Matching Main */
+
+  --primary-hover: rgba(140, 107, 93, 0.25);
+  --primary-bg-subtle: rgba(203, 184, 174, 0.25);
+  --primary-shadow: rgba(94, 64, 53, 0.25);
+
+  --bg-gradient-start: #fbf7f4;
+  --bg-gradient-mid: #f0ebe6;
+  --bg-gradient-end: #e6dfd9;
 }
 
 * {
@@ -45,10 +81,11 @@ body {
 
 header h1 {
   margin: 0 0 8px;
-  color: #7a9b8e;
+  color: var(--primary-header);
   font-weight: 700;
   font-size: 2.2rem;
   text-shadow: 2px 2px 4px rgba(122, 155, 142, 0.15);
+  /* Keep shadow subtle or use variable if needed */
   display: flex;
   align-items: center;
   gap: 12px;
@@ -74,7 +111,7 @@ header p {
 .motivational-quote {
   font-size: 16px;
   font-weight: 600;
-  color: #6b9887 !important;
+  color: var(--primary-main) !important;
   font-style: italic;
   text-shadow: 1px 1px 2px rgba(122, 155, 142, 0.1);
   animation: fadeIn 0.8s ease-in;
@@ -85,6 +122,7 @@ header p {
     opacity: 0;
     transform: translateY(-5px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -111,7 +149,7 @@ header p {
 }
 
 .card h2 {
-  color: #6b8b7e;
+  color: var(--primary-main);
   font-weight: 600;
   margin-top: 0;
   margin-bottom: 20px;
@@ -145,8 +183,8 @@ input {
 
 input:focus {
   outline: none;
-  border-color: #a4c4b8;
-  box-shadow: 0 0 0 4px rgba(164, 196, 184, 0.2);
+  border-color: var(--primary-light);
+  box-shadow: 0 0 0 4px var(--primary-bg-subtle);
   background: #fff;
 }
 
@@ -169,8 +207,8 @@ textarea {
 
 textarea:focus {
   outline: none;
-  border-color: #a4c4b8;
-  box-shadow: 0 0 0 4px rgba(164, 196, 184, 0.2);
+  border-color: var(--primary-light);
+  box-shadow: 0 0 0 4px var(--primary-bg-subtle);
   background: #fff;
 }
 
@@ -197,8 +235,8 @@ select {
 
 select:focus {
   outline: none;
-  border-color: #a4c4b8;
-  box-shadow: 0 0 0 4px rgba(164, 196, 184, 0.2);
+  border-color: var(--primary-light);
+  box-shadow: 0 0 0 4px var(--primary-bg-subtle);
   background-color: #fff;
 }
 
@@ -207,9 +245,9 @@ select:focus {
 }
 
 .btn-secondary {
-  background: rgba(164, 196, 184, 0.2);
-  color: #6b8b7e;
-  border: 2px solid #a4c4b8;
+  background: var(--primary-bg-subtle);
+  color: var(--primary-main);
+  border: 2px solid var(--primary-light);
   border-radius: 16px;
   padding: 10px 16px;
   font-size: 14px;
@@ -224,13 +262,13 @@ select:focus {
 }
 
 .btn-secondary:hover {
-  background: rgba(164, 196, 184, 0.35);
+  background: var(--primary-hover);
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(107, 139, 126, 0.2);
+  box-shadow: 0 2px 8px var(--primary-bg-subtle);
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #8bb4a5 0%, #6b9887 100%);
+  background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary-dark) 100%);
   color: #fff;
   border: none;
   border-radius: 16px;
@@ -240,7 +278,7 @@ select:focus {
   font-family: inherit;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(107, 152, 135, 0.3);
+  box-shadow: 0 2px 8px var(--primary-shadow);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -248,7 +286,7 @@ select:focus {
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(107, 152, 135, 0.4);
+  box-shadow: 0 4px 12px var(--primary-shadow);
 }
 
 .add-exercise-btn-wrapper {
@@ -257,8 +295,8 @@ select:focus {
 }
 
 .last-record-info {
-  background: rgba(164, 196, 184, 0.15);
-  border-left: 4px solid #8bb4a5;
+  background: var(--primary-bg-subtle);
+  border-left: 4px solid var(--primary-light);
   padding: 10px 14px;
   border-radius: 12px;
   display: flex;
@@ -269,7 +307,7 @@ select:focus {
 
 .info-label {
   font-weight: 600;
-  color: #6b8b7e;
+  color: var(--primary-main);
 }
 
 .info-value {
@@ -278,8 +316,8 @@ select:focus {
 }
 
 .add-exercise-form {
-  background: rgba(164, 196, 184, 0.08);
-  border: 2px dashed #a4c4b8;
+  background: var(--primary-bg-subtle);
+  border: 2px dashed var(--primary-light);
   border-radius: 20px;
   padding: 20px;
   margin-top: 12px;
@@ -287,7 +325,7 @@ select:focus {
 
 .add-exercise-form h3 {
   margin: 0 0 16px;
-  color: #6b8b7e;
+  color: var(--primary-main);
   font-size: 16px;
   font-weight: 600;
 }
@@ -300,14 +338,14 @@ select:focus {
 }
 
 .sets-section {
-  background: rgba(164, 196, 184, 0.06);
+  background: var(--primary-bg-subtle);
   border-radius: 20px;
   padding: 20px;
 }
 
 .sets-section h3 {
   margin: 0 0 16px;
-  color: #6b8b7e;
+  color: var(--primary-main);
   font-size: 16px;
   font-weight: 600;
 }
@@ -377,7 +415,7 @@ select:focus {
 }
 
 button {
-  background: linear-gradient(135deg, #8bb4a5 0%, #6b9887 100%);
+  background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary-dark) 100%);
   color: #fff;
   border: none;
   border-radius: 20px;
@@ -395,7 +433,7 @@ button {
 
 button:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(107, 152, 135, 0.4);
+  box-shadow: 0 6px 16px var(--primary-shadow);
 }
 
 button:disabled {
@@ -442,7 +480,7 @@ button:not(:disabled):active {
 
 .table-head {
   font-weight: 700;
-  color: #6b8b7e;
+  color: var(--primary-main);
   padding: 0 12px;
 }
 
@@ -511,7 +549,7 @@ button:not(:disabled):active {
   padding: 12px 20px;
   border: none;
   background: transparent;
-  color: #6b8b7e;
+  color: var(--primary-main);
   font-weight: 600;
   font-size: 15px;
   border-radius: 16px;
@@ -527,9 +565,9 @@ button:not(:disabled):active {
 }
 
 .tab.active {
-  background: linear-gradient(135deg, #8bb4a5 0%, #6b9887 100%);
+  background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary-dark) 100%);
   color: #fff;
-  box-shadow: 0 4px 12px rgba(107, 152, 135, 0.3);
+  box-shadow: 0 4px 12px var(--primary-shadow);
   transform: translateY(0);
 }
 
@@ -576,12 +614,12 @@ button:not(:disabled):active {
 }
 
 .sidebar-toggle {
-  background: rgba(164, 196, 184, 0.2);
-  border: 2px solid #a4c4b8;
+  background: var(--primary-bg-subtle);
+  border: 2px solid var(--primary-light);
   border-radius: 12px;
   padding: 8px;
   cursor: pointer;
-  color: #6b8b7e;
+  color: var(--primary-main);
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
@@ -608,7 +646,7 @@ button:not(:disabled):active {
   padding: 14px 20px;
   border: none;
   background: transparent;
-  color: #6b8b7e;
+  color: var(--primary-main);
   font-weight: 600;
   font-size: 15px;
   cursor: pointer;
@@ -651,12 +689,12 @@ button:not(:disabled):active {
 /* Mobile Menu Button */
 .mobile-menu-btn {
   display: none;
-  background: rgba(164, 196, 184, 0.2);
-  border: 2px solid #a4c4b8;
+  background: var(--primary-bg-subtle);
+  border: 2px solid var(--primary-light);
   border-radius: 12px;
   padding: 8px;
   cursor: pointer;
-  color: #6b8b7e;
+  color: var(--primary-main);
   transition: all 0.2s ease;
   align-items: center;
   justify-content: center;
@@ -1287,6 +1325,7 @@ button:not(:disabled):active {
 }
 
 @media (max-width: 900px) {
+
   /* 手機版：隱藏固定 sidebar，改用浮動選單 */
   .sidebar {
     position: fixed;
@@ -1417,21 +1456,21 @@ button:not(:disabled):active {
     width: 100%;
     margin: 0;
   }
-  
-  .header-top > div {
+
+  .header-top>div {
     flex: 1;
     min-width: 0;
   }
-  
+
   .header-top h1 {
     margin: 0 0 4px;
     font-size: 1.5rem;
   }
-  
+
   .header-top p {
     margin: 0;
   }
-  
+
   .theme-toggle {
     flex-shrink: 0;
     padding: 8px 12px;
@@ -1469,24 +1508,27 @@ button:not(:disabled):active {
     font-size: 11px;
     padding: 8px 0;
   }
-  
+
   .set-row label {
     min-width: 0;
     font-size: 11px;
   }
-  
+
   .set-row input {
     padding: 8px 10px;
     font-size: 14px;
   }
 
-  input, select, textarea {
-    font-size: 16px; /* 避免 iOS 自動縮放 */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+    /* 避免 iOS 自動縮放 */
     min-width: 0;
     width: 100%;
     box-sizing: border-box;
   }
-  
+
   label {
     width: 100%;
     max-width: 100%;
@@ -1498,7 +1540,7 @@ button:not(:disabled):active {
     white-space: nowrap;
     max-width: 100%;
   }
-  
+
   .btn-secondary {
     font-size: 13px;
     padding: 10px 14px;
@@ -1526,14 +1568,14 @@ button:not(:disabled):active {
     flex-wrap: wrap;
     width: 100%;
   }
-  
+
   .sets-section {
     padding: 12px;
     width: 100%;
     max-width: 100%;
     margin: 0;
   }
-  
+
   .sets-section h3 {
     margin-top: 0;
   }
@@ -1546,7 +1588,7 @@ button:not(:disabled):active {
     word-break: break-word;
     padding: 8px 10px;
   }
-  
+
   .table {
     overflow-x: hidden;
     width: 100%;
@@ -1606,13 +1648,14 @@ button:not(:disabled):active {
     width: 100%;
     max-width: 100%;
   }
-  
+
   .actions button {
     flex: 1;
     min-width: 0;
   }
 
-  .error, .ok {
+  .error,
+  .ok {
     width: 100%;
     text-align: center;
     word-wrap: break-word;
@@ -1657,4 +1700,3 @@ button:not(:disabled):active {
     height: 28px;
   }
 }
-

@@ -2,6 +2,7 @@ export interface Exercise {
   zh: string;
   en: string;
   targetMuscle: string;
+  type?: "strength" | "cardio";
 }
 
 export const DEFAULT_EXERCISES: Exercise[] = [
@@ -13,6 +14,8 @@ export const DEFAULT_EXERCISES: Exercise[] = [
   { zh: "胸上緣", en: "Incline Press", targetMuscle: "胸大肌上緣" },
   { zh: "股四頭肌", en: "Quad Exercise", targetMuscle: "股四頭肌" },
   { zh: "背闊肌", en: "Lat Pulldown", targetMuscle: "背闊肌" },
+  { zh: "跑步機", en: "Treadmill", targetMuscle: "心肺", type: "cardio" },
+  { zh: "滑步機", en: "Elliptical", targetMuscle: "心肺", type: "cardio" },
 ];
 
 export function loadExercises(): Exercise[] {

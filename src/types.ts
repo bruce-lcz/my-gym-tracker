@@ -1,8 +1,14 @@
+export type User = "Bruce" | "Linda";
+
 export type SetData = {
   weight: string;
   reps: string;
+  incline?: string;
+  speed?: string;
+  time?: string;
 };
 
+// Frontend logical unit (Session or Action Group)
 export type TrainingLog = {
   id?: string;
   actionZh: string;
@@ -15,6 +21,21 @@ export type TrainingLog = {
   notes?: string;
   nextTarget?: string;
   createdAt?: string;
+};
+
+// Backend raw row
+export type RawLog = {
+  id: string;
+  date: string;
+  actionZh: string;
+  actionEn: string;
+  targetMuscle: string;
+  weight: string;
+  reps: string;
+  rpe: string;
+  notes: string;
+  nextTarget: string;
+  createdAt: string;
 };
 
 export type ReleaseNote = {
