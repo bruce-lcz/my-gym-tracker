@@ -1,112 +1,91 @@
-# My Gym Tracker (React + Vite + Google Sheets)
+# 🏋️ My Gym Tracker
 
-前端：React + Vite + TypeScript，可部署 GitHub Pages。  
-後端：Google Apps Script Web App，直接讀寫指定 Google Sheet。  
-驗證：Apps Script 以 email 白名單驗證（Session.getActiveUser().getEmail()）。
+[![React](https://img.shields.io/badge/Frontend-React-61DAFB?logo=react)](https://reactjs.org/)
+[![TypeScript](https://img.shields.io/badge/Language-TypeScript-3178C6?logo=typescript)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Bundler-Vite-646CFF?logo=vite)](https://vitejs.dev/)
+[![Google Sheets](https://img.shields.io/badge/Backend-Google_Sheets-34A853?logo=googlesheets)](https://www.google.com/sheets/about/)
 
-## ✨ 主要功能
+> **A personal fitness data hub built for efficiency and control.** A lightweight web app designed for fitness enthusiasts who want a minimalist, fast, and fully self-managed training log experience.
 
-- 📝 **新增訓練**：記錄健身動作、組數、重量、RPE 等詳細資訊
-- 📊 **訓練紀錄**：查看所有歷史訓練記錄
-- 📖 **版本紀錄**：管理應用版本更新和變更日誌
-- 🎨 **深色模式**：支援淺色/深色主題切換
-- 🎯 **自訂動作**：可新增自己的健身動作
-- 📱 **響應式設計**：支援手機、平板、桌面各種螢幕尺寸
-- 🎭 **豐富圖標**：使用 Lucide React 提供美觀的圖標系統
+---
 
-## 環境設定
-1. 建立 `.env.local`，填入：
-   ```
-   VITE_APP_SCRIPT_URL=https://script.google.com/macros/s/你的-script-id/exec
-   VITE_APP_TOKEN=你的自訂 token（若不用可留空）
-   ```
-2. 安裝依賴並啟動
-   ```bash
-   npm install
-   npm run dev
-   ```
+## 🌟 Project Highlights
 
-## Google Apps Script 範例
-```js
-const SHEET_ID = "YOUR_SHEET_ID"; // 改成你的 Google Sheet ID
-const SHEET_NAME = "工作表1"; // 改成你的工作表標籤名稱
-const ALLOW_EMAILS = ["your-email@gmail.com"]; // 改成你的 Gmail
-const TOKEN = "your-secret-token-123"; // 設定一個密碼，前端 .env 也要填相同的
+This is more than just a logging tool—it's a showcase of **"how to achieve zero-cost infrastructure while maintaining performance and security."**
 
-function doGet(e) {
-  const auth = authorize(e);
-  if (!auth.ok) return auth.response;
-  const action = e.parameter.action || "logs";
-  if (action !== "logs") return json({ error: "unknown action" });
+*   **Serverless Architecture**: Leverages Google Apps Script as a middleware API for completely free backend operations.
+*   **Full Data Ownership**: All data is stored directly in your Google Sheets—export and analyze anytime.
+*   **Lightning-Fast UX**: Mobile-optimized responsive interface with dark mode support for seamless gym logging.
+*   **Data Visualization**: Integrated with Recharts for intuitive analysis of muscle group distribution and training trends.
+*   **Interactive Analytics**: Click-to-explore charts with detailed exercise history and progress tracking.
 
-  const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_NAME);
-  const values = sheet.getDataRange().getValues();
-  const [header, ...rows] = values;
-  const data = rows
-    .filter(r => r.length && r.some(v => v !== ""))
-    .map(r => {
-      const obj = {};
-      header.forEach((key, idx) => (obj[key] = r[idx]));
-      return obj;
-    });
+## ✨ Key Features
 
-  return json(data);
-}
+- 📝 **Smart Training Logs**: Auto-fill previous session data for quick weight, reps, RPE, and notes entry.
+- 📊 **Interactive Dashboard**: Visualize training distribution, track progress with dynamic charts, and drill down into exercise-specific stats.
+- 🏃 **Cardio Support**: Dedicated inputs for speed, incline, and time—seamlessly integrated with existing data structure.
+- 🎯 **Custom Exercise Library**: Flexibly add personalized exercises with localStorage persistence.
+- 🌙 **Dark Mode**: Minimalist UI design that adapts to any lighting environment.
+- 👥 **Multi-User Support**: Switch between users (e.g., Bruce & Linda) with personalized themes.
+- 📖 **Version Changelog System**: Auto-parses CHANGELOG.md to display app evolution history.
+- 📱 **Fluid Responsive Design**: Perfectly adapts from desktop to mobile screens.
 
-function doPost(e) {
-  const auth = authorize(e);
-  if (!auth.ok) return auth.response;
-  const action = e.parameter.action || "logs";
-  if (action !== "logs") return json({ error: "unknown action" });
-  const body = JSON.parse(e.postData.contents || "{}");
+## 🛠 Tech Stack
 
-  const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_NAME);
-  sheet.appendRow([
-    body.actionZh ?? body["動作名稱 (中文)"] ?? "",
-    body.actionEn ?? body["動作名稱 (英文)"] ?? "",
-    body.targetMuscle ?? body["目標肌群"] ?? "",
-    body.lastDate ?? body["上次日期"] ?? "",
-    body.lastRecord ?? body["上次紀錄 (Max Weight/Reps)"] ?? "",
-    body.currentDate ?? body["本次日期"] ?? "",
-    body.set1 ?? body["Set 1 (Reps @ Weight kg)"] ?? "",
-    body.set2 ?? body["Set 2 (Reps @ Weight kg)"] ?? "",
-    body.set3 ?? body["Set 3 (Reps @ Weight kg)"] ?? "",
-    body.rpe ?? body["RPE (強度感受)"] ?? "",
-    body.nextTarget ?? body["下次目標 (Target)"] ?? "",
-    new Date()
-  ]);
+### Frontend
+- **Framework**: `React 18` (TypeScript)
+- **Build Tool**: `Vite`
+- **Charts**: `Recharts` (for statistical visualizations)
+- **Icons**: `Lucide React`
+- **Styling**: `Vanilla CSS` (precise control over details)
 
-  return json({ message: "ok" });
-}
+### Backend & Data
+- **API Server**: `Google Apps Script` (GAS)
+- **Storage**: `Google Sheets`
+- **Auth**: `Apps Script Session Auth` + `Secret Token` dual verification
 
-function authorize(e) {
-  const email = Session.getActiveUser().getEmail();
-  if (ALLOW_EMAILS.length && !ALLOW_EMAILS.includes(email)) {
-    return { ok: false, response: json({ error: "not allowed" }) };
-  }
-  if (TOKEN && e.parameter.token !== TOKEN) {
-    return { ok: false, response: json({ error: "invalid token" }) };
-  }
-  return { ok: true };
-}
+---
 
-function json(obj) {
-  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
-}
-```
+## 📂 Documentation
 
-### Apps Script 部署步驟
-1. 在 Google Sheet 內「擴充功能」→「Apps Script」，貼上程式碼，調整 `SHEET_NAME`、`ALLOW_EMAILS`、`TOKEN`。
-2. 「部署」→「新部署」→ 類型選「網頁應用程式」，執行身份：自己，存取權：僅限自己/具權限帳號。
-3. 複製部署後的 Web App URL，填入前端 `.env.local` 的 `VITE_APP_SCRIPT_URL`。
+- **Feature Guide**: See [FEATURES.md](./FEATURES.md)
+- **Changelog**: See [CHANGELOG.md](./CHANGELOG.md)
+- **Setup & Deployment**: See [docs/TOKEN_SETUP.md](./docs/TOKEN_SETUP.md)
 
-### GitHub Pages 部署
-1. `npm run build`
-2. 將 `dist/` 推到 GitHub（根據你的專案路徑，`vite.config.ts` 的 `base` 預設為 `./`）。
-3. GitHub Repo 設定 Pages，來源選 `gh-pages` 分支或 `dist` 輸出（可用 GitHub Actions 部署）。
+---
 
-### 常見問題
-- CORS：Apps Script 回應需加 `Access-Control-Allow-Origin`。若仍被擋，檢查部署版本是否最新並重新發佈。
-- 權限：若設「僅限自己」，請用同一帳號登入 Google 後再呼叫 API。
-- 欄位對應：前端 `TrainingLog` 與 Sheet 欄位一致；可在 Apps Script `appendRow` 調整順序或增加欄位。
+## 👨‍💻 About
 
+This is a **side project** I developed to demonstrate my approach to web performance optimization, lightweight backend integration, and user experience design. If you're interested in this project or want to discuss tech, feel free to reach out!
+
+- **Portfolio**: [bruce-lcz.github.io](https://bruce-lcz.github.io)
+- **GitHub**: [@bruce-lcz](https://github.com/bruce-lcz)
+
+---
+
+## 📸 Screenshots
+
+### Dashboard Analytics
+Interactive charts with click-to-explore functionality and rich tooltips.
+
+### Training Log
+Smart form with auto-fill and support for both strength and cardio exercises.
+
+### Multi-User Themes
+Personalized color schemes for different users (Bruce: Nature Green / Linda: Maillard Earth Tones).
+
+---
+
+## 🚀 Quick Start
+
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Set up your Google Apps Script backend (see [docs/TOKEN_SETUP.md](./docs/TOKEN_SETUP.md))
+4. Configure `.env.local` with your API endpoint and token
+5. Run dev server: `npm run dev`
+
+---
+
+## 📄 License
+
+This project is open-sourced for portfolio demonstration purposes. Feel free to explore and learn from the code!
