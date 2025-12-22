@@ -1,5 +1,5 @@
 import { APP_CONFIG, defaultHeaders } from "./config";
-import { ApiResult, TrainingLog } from "./types";
+import { ApiResult, TrainingLog, RawLog, User } from "./types";
 
 type FetchOptions = {
   method: "GET" | "POST";
@@ -29,7 +29,7 @@ const request = async <T>(options: FetchOptions): Promise<ApiResult<T>> => {
       redirect: 'follow'
     };
 
-    // 只在 POST 且有 body 時才設定 headers 和 body
+    // Only set body for POST
     if (options.method === 'POST' && options.body) {
       fetchOptions.headers = defaultHeaders;
       fetchOptions.body = JSON.stringify(options.body);
@@ -47,44 +47,59 @@ const request = async <T>(options: FetchOptions): Promise<ApiResult<T>> => {
   }
 };
 
-export const fetchLogs = async () => {
-  const res = await request<Record<string, string>[]>({
+export const fetchLogs = async (user: User) => {
+  const res = await request<RawLog[]>({
     method: "GET",
-    params: { action: "logs" }
+    params: { action: "logs", user }
   });
   if (!res.ok || !res.data) return { ok: res.ok, error: res.error };
 
-  const mapped: TrainingLog[] = res.data.map((row, idx) => {
-    const sets = [];
-    for (let i = 1; i <= 4; i++) {
-      const weight = row[`Set ${i} Weight (kg)`] ?? row[`set${i}Weight`] ?? "";
-      const reps = row[`Set ${i} Reps`] ?? row[`set${i}Reps`] ?? "";
-      if (weight || reps) {
-        sets.push({ weight, reps });
-      }
-    }
-    if (sets.length === 0) {
-      sets.push({ weight: "", reps: "" });
+  // REGROUPING LOGIC: Group by (Date + ActionZh)
+  // Input: List of RawLog (1 Row = 1 Set)
+  // Output: List of TrainingLog (1 Session = Multiple Sets)
+
+  const groupedHelper: Record<string, TrainingLog> = {};
+
+  // Assuming res.data is ordered by Date Desc (from backend)
+  // We want to preserve that order roughly.
+
+  res.data.forEach(row => {
+    const key = `${row.date}_${row.actionZh}`;
+
+    if (!groupedHelper[key]) {
+      groupedHelper[key] = {
+        id: row.id, // Use the ID of the first row encountered (or random)
+        actionZh: row.actionZh,
+        actionEn: row.actionEn,
+        targetMuscle: row.targetMuscle,
+        currentDate: row.date,
+        sets: [],
+        rpe: row.rpe,
+        notes: row.notes,
+        nextTarget: row.nextTarget,
+        createdAt: row.createdAt
+      };
     }
 
-    return {
-      id: row.id ?? String(idx),
-      actionZh: row["動作名稱"] ?? row.actionZh ?? "",
-      actionEn: row["Action Name"] ?? row.actionEn ?? "",
-      targetMuscle: row["目標肌群"] ?? row.targetMuscle ?? "",
-      lastDate: row["上次日期"] ?? row.lastDate ?? "",
-      currentDate: row["本次日期"] ?? row.currentDate ?? "",
-      sets,
-      rpe: row["RPE"] ?? row.rpe ?? "",
-      notes: row["備註"] ?? row.notes ?? "",
-      nextTarget: row["下次目標"] ?? row.nextTarget ?? "",
-      createdAt: row["建立時間"] ?? row.createdAt ?? ""
-    };
+    if (row.weight || row.reps) {
+      groupedHelper[key].sets.push({
+        weight: row.weight,
+        reps: row.reps
+      });
+    }
+  });
+
+  const mapped: TrainingLog[] = Object.values(groupedHelper).sort((a, b) => {
+    return (b.currentDate || "").localeCompare(a.currentDate || "");
   });
 
   return { ok: true, data: mapped };
 };
 
-export const createLog = (payload: TrainingLog) =>
-  request<{ message: string }>({ method: "POST", body: payload, params: { action: "logs" } });
+export const createLog = (user: User, payload: TrainingLog) =>
+  request<{ message: string }>({
+    method: "POST",
+    body: payload,
+    params: { action: "logs", user }
+  });
 
