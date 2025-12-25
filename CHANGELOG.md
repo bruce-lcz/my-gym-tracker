@@ -1,5 +1,90 @@
 # 更新日誌
 
+## v1.7.0 - 2025-12-25 🎄
+
+### ✨ 新功能
+
+- **動態動作資料載入**
+  - 從 Google Sheets 的「Exercises」分頁動態載入動作資料
+  - 新增 `getExercises()` API 端點，支援即時同步動作清單
+  - 實作三層資料優先級：Google Sheets → localStorage 自訂動作 → 預設動作
+  - 新增完整的錯誤處理與日誌記錄機制
+
+- **輪播勵志語錄**
+  - 首頁勵志語錄每 10 秒自動輪播
+  - 使用 React hooks 實現流暢的切換效果
+  - 提升使用者參與度與訓練動力
+
+### 🎨 視覺與主題優化
+
+- **CSS 主題系統重構**
+  - 大幅優化 CSS 程式碼，減少 47% 檔案大小 (566 行刪除, 294 行新增)
+  - 整合重複的 CSS 規則，提升維護性
+  - 改善深色模式實作，更好的變數使用
+  - 優化 Bruce 和 Linda 使用者專屬主題變數
+
+### 🛠️ 技術改進
+
+- **API 與配置優化**
+  - 新增 Vite proxy 配置，改善 Google Apps Script API 連線
+  - 實作智慧 URL 處理：支援絕對路徑 (production) 和相對路徑 (dev)
+  - 強化型別安全：修復 `s.weight.includes` TypeError
+  - 更新 TypeScript 配置，提升型別檢查能力
+  - 改善錯誤處理與 proxy 連線管理
+
+### 📚 文件更新
+
+- 新增完整的 Google Sheets 設定指南 (`docs/GOOGLE_SHEET_SETUP.md`)
+- 更新 AppScript 文件，包含 Exercises 分頁設定說明
+- 提供詳細的欄位結構與配置步驟
+
+### 🐛 錯誤修復
+
+- 修復 `TypeError: s.weight.includes is not a function` 問題
+- 解決 CORS 相關問題，改善 proxy 配置
+- 修正多個型別安全問題
+
+---
+
+## v1.6.0 - 2025-12-24
+
+### 🔧 配置與整合改進
+
+- **CORS 問題解決**
+  - 修復本地開發環境與 Google Apps Script 的 CORS 錯誤
+  - 優化 `Access-Control-Allow-Origin` 標頭設定
+  - 改善客戶端與伺服器端的通訊配置
+
+- **Proxy 配置優化**
+  - 解決「Invalid URL」錯誤
+  - 調整 Vite 開發伺服器的 proxy 設定
+  - 確保本地開發與生產環境的一致性
+
+### 🛠️ 技術改進
+
+- 更新依賴套件版本
+- 改善錯誤處理機制
+- 優化開發環境配置
+
+---
+
+## v1.5.0 - 2025-12-24
+
+### 📚 文件與專案管理
+
+- **專案文件更新**
+  - 更新 v1.4.0 版本的完整文件
+  - 整理專案結構說明
+  - 改善 README 與設定指南
+
+### 🔄 分支管理
+
+- 同步 dev 分支與 GitHub
+- 合併主分支的最新變更
+- 優化 Git 工作流程
+
+---
+
 ## v1.4.0 - 2025-12-23
 
 ### ✨ 新功能

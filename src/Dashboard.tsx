@@ -157,7 +157,7 @@ export default function Dashboard({ user, logs, onLoadDemoData }: DashboardProps
                         onClick={onLoadDemoData}
                         style={{
                             padding: "10px 20px",
-                            backgroundColor: "var(--primary-color)",
+                            backgroundColor: "var(--primary-main)",
                             color: "white",
                             border: "none",
                             borderRadius: "8px",
@@ -221,7 +221,7 @@ export default function Dashboard({ user, logs, onLoadDemoData }: DashboardProps
                             <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                             <XAxis type="number" hide />
                             <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 12 }} />
-                            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--bg-hover)' }} />
+                            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--primary-bg-subtle)' }} />
                             <Bar dataKey="count" fill={primaryColor} radius={[0, 4, 4, 0]}>
                                 {topExercises.map((entry, index) => (
                                     <Cell

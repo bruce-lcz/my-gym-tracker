@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createLog, fetchLogs } from "./api";
 import { APP_CONFIG } from "./config";
 import { TrainingLog, ReleaseNote, User } from "./types";
-import { loadExercises, saveCustomExercise, Exercise } from "./exerciseData";
+import { loadExercises, saveCustomExercise, Exercise, fetchExercisesFromSheet } from "./exerciseData";
 import { loadChangelog } from "./changelogParser";
 import { MOCK_LOGS } from "./mockData";
 import Dashboard from "./Dashboard";
@@ -89,9 +89,16 @@ function App() {
     "🎯 專注當下，成就未來",
     "⭐ 你比你想像的更強大"
   ];
-  const [currentQuote] = useState(() =>
-    motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)]
+  const [currentQuoteIndex, setCurrentQuoteIndex] = useState(() =>
+    Math.floor(Math.random() * motivationalQuotes.length)
   );
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentQuoteIndex((prevIndex) => (prevIndex + 1) % motivationalQuotes.length);
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [motivationalQuotes.length]);
 
   // Release Notes 相關狀態（從 CHANGELOG.md 載入）
   const [releaseNotes, setReleaseNotes] = useState<ReleaseNote[]>([]);
@@ -131,6 +138,15 @@ function App() {
         setReleaseNotes(releases);
       }
     });
+  }, []);
+
+  // 載入動作資料從 Google Sheets
+  useEffect(() => {
+    const loadExercisesData = async () => {
+      const exercisesData = await fetchExercisesFromSheet();
+      setExercises(exercisesData);
+    };
+    loadExercisesData();
   }, []);
 
   const toggleTheme = () => {
@@ -358,7 +374,9 @@ function App() {
             </button>
             <div>
               <h1>GYM-TRACKER</h1>
-              <p className="motivational-quote">{currentQuote}</p>
+              <p key={currentQuoteIndex} className="motivational-quote">
+                {motivationalQuotes[currentQuoteIndex]}
+              </p>
             </div>
           </div>
           {!APP_CONFIG.apiBase && (
@@ -665,7 +683,7 @@ function App() {
                 </div>
                 {logs.map((row, idx) => {
                   // Determine display style based on content roughly
-                  const isCardio = row.sets.some(s => s.weight.includes("Spd") || s.reps.includes("min"));
+                  const isCardio = row.sets.some(s => String(s.weight || '').includes("Spd") || String(s.reps || '').includes("min"));
 
                   return (
                     <div className="table-row" key={row.id ?? idx}>
