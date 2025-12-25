@@ -10,12 +10,26 @@ type FetchOptions = {
 const buildUrl = (params?: Record<string, string>) => {
   const base = APP_CONFIG.apiBase;
   if (!base) return "";
-  const url = new URL(base);
-  Object.entries(params ?? {}).forEach(([k, v]) => url.searchParams.set(k, v));
+
+  // Build query parameters
+  const allParams = { ...params };
   if (APP_CONFIG.token) {
-    url.searchParams.set("token", APP_CONFIG.token);
+    allParams.token = APP_CONFIG.token;
   }
-  return url.toString();
+
+  const queryString = Object.entries(allParams)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join('&');
+
+  // Handle both absolute URLs (production) and relative paths (dev proxy)
+  if (base.startsWith('http')) {
+    const url = new URL(base);
+    url.search = queryString;
+    return url.toString();
+  } else {
+    // Relative path for proxy
+    return queryString ? `${base}?${queryString}` : base;
+  }
 };
 
 const request = async <T>(options: FetchOptions): Promise<ApiResult<T>> => {
@@ -83,8 +97,8 @@ export const fetchLogs = async (user: User) => {
 
     if (row.weight || row.reps) {
       groupedHelper[key].sets.push({
-        weight: row.weight,
-        reps: row.reps
+        weight: String(row.weight || ''),
+        reps: String(row.reps || '')
       });
     }
   });
@@ -102,4 +116,22 @@ export const createLog = (user: User, payload: TrainingLog) =>
     body: payload,
     params: { action: "logs", user }
   });
+
+export const fetchExercises = async () => {
+  const res = await request<Array<{
+    zh: string;
+    en: string;
+    targetMuscle: string;
+    type?: "strength" | "cardio";
+  }>>({
+    method: "GET",
+    params: { action: "exercises" }
+  });
+
+  if (!res.ok || !res.data) {
+    return { ok: res.ok, error: res.error, data: [] };
+  }
+
+  return { ok: true, data: res.data };
+};
 

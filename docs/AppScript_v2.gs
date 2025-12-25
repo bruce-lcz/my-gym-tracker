@@ -3,19 +3,25 @@
  * 
  * SETUP INSTRUCTIONS:
  * 1. Create a Google Sheet.
- * 2. Create two sheets (tabs) named exactly: "Bruce" and "Linda".
- * 3. In both sheets, set the header row (Row 1) as follows:
+ * 2. Create three sheets (tabs) named exactly: "Bruce", "Linda", and "Exercises".
+ * 3. In "Bruce" and "Linda" sheets, set the header row (Row 1) as follows:
  *    [ID, Date, ActionZh, ActionEn, TargetMuscle, Weight, Reps, RPE, Notes, NextTarget, CreatedAt]
- * 4. Open Extensions > Apps Script.
- * 5. Paste this code.
- * 6. Set up Token Security:
+ * 4. In "Exercises" sheet, set the header row (Row 1) as follows:
+ *    [ActionZh, ActionEn, TargetMuscle, Type]
+ *    - ActionZh: 動作中文名稱 (e.g., 羅馬尼亞硬舉)
+ *    - ActionEn: 動作英文名稱 (e.g., Romanian Deadlift)
+ *    - TargetMuscle: 目標肌群 (e.g., 腿後肌群)
+ *    - Type: strength 或 cardio
+ * 5. Open Extensions > Apps Script.
+ * 6. Paste this code.
+ * 7. Set up Token Security:
  *    - Click on "Project Settings" (gear icon on left)
  *    - Scroll to "Script Properties"
  *    - Click "Add script property"
  *    - Name: AUTH_TOKEN
  *    - Value: your-secret-token-123 (same as in your .env file)
- * 7. Deploy > New Deployment > Web App > Execute as: Me > Who has access: Anyone.
- * 8. Copy the URL and paste it into your .env file as VITE_APP_SCRIPT_URL.
+ * 8. Deploy > New Deployment > Web App > Execute as: Me > Who has access: Anyone.
+ * 9. Copy the URL and paste it into your .env file as VITE_APP_SCRIPT_URL.
  */
 
 // Token verification
@@ -66,6 +72,10 @@ function doGet(e) {
     
     if (action === "logs") {
       return getLogs(user);
+    }
+    
+    if (action === "exercises") {
+      return getExercises();
     }
     
     return response({ error: "Unknown action" });
@@ -167,6 +177,42 @@ function getLogs(user) {
   return response(logs);
 }
 
+function getExercises() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName("Exercises");
+    
+    if (!sheet) {
+      // Return empty array if Exercises sheet doesn't exist
+      return response([]);
+    }
+    
+    const lastRow = sheet.getLastRow();
+    
+    if (lastRow <= 1) {
+      return response([]);
+    }
+    
+    // Get all data excluding header
+    // Headers: [ActionZh, ActionEn, TargetMuscle, Type]
+    const data = sheet.getRange(2, 1, lastRow - 1, 4).getValues();
+    
+    // Map to object
+    const exercises = data
+      .filter(row => row[0]) // Filter out empty rows
+      .map(row => ({
+        zh: row[0],
+        en: row[1] || "",
+        targetMuscle: row[2] || "",
+        type: row[3] || "strength"
+      }));
+    
+    return response(exercises);
+  } catch (err) {
+    return response({ error: err.toString() });
+  }
+}
+
 function response(data) {
   return ContentService.createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
@@ -175,3 +221,4 @@ function response(data) {
 function test() {
   console.log(getLogs("Bruce"));
 }
+
