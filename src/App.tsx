@@ -169,7 +169,10 @@ function App() {
     const selected = exercises.find(ex => ex.zh === value);
     if (selected) {
       const today = getLocalDate();
-      const type = selected.type || "strength";
+      // Normalize type to lowercase for consistent comparison
+      const rawType = selected.type?.toLowerCase() || "strength";
+      const type: "strength" | "cardio" = rawType === "cardio" ? "cardio" : "strength";
+
       setCurrentExerciseType(type);
 
       // Detect if we have done this exercise today
