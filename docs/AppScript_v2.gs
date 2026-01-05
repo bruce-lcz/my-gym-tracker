@@ -21,7 +21,8 @@
  *    - Name: AUTH_TOKEN
  *    - Value: your-secret-token-123 (same as in your .env file)
  * 8. Deploy > New Deployment > Web App > Execute as: Me > Who has access: Anyone.
- * 9. Copy the URL and paste it into your .env file as VITE_APP_SCRIPT_URL.
+ *    (OR if updating: Deploy > Manage Deployments > Edit (Pencil) > Version: New version > Deploy)
+ * 9. Copy the URL and paste it into your .env file as VITE_APP_SCRIPT_URL (if it changed).
  */
 
 // Token verification
