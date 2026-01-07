@@ -107,6 +107,26 @@ function App() {
     return !form.actionZh || !form.currentDate;
   }, [form]);
 
+  // Group logs by date
+  const groupedLogs = useMemo(() => {
+    const groups: { [key: string]: TrainingLog[] } = {};
+    logs.forEach(log => {
+      const date = log.currentDate || "Unknown Date";
+      if (!groups[date]) {
+        groups[date] = [];
+      }
+      groups[date].push(log);
+    });
+
+    // Return sorted groups (Newest date first)
+    return Object.entries(groups)
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([date, items]) => ({
+        date,
+        items
+      }));
+  }, [logs]);
+
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("theme", theme);
@@ -197,13 +217,27 @@ function App() {
     }
   };
 
-  const handleAddExercise = () => {
+  const handleAddExercise = async () => {
     if (!newExercise.zh.trim()) {
       setError("請至少填寫動作中文名稱");
       return;
     }
-    saveCustomExercise(newExercise);
-    setExercises(loadExercises());
+
+    setSaving(true);
+    setError(null);
+
+    const result = await saveCustomExercise(newExercise);
+
+    if (!result.ok) {
+      setError(result.error || "新增動作失敗");
+      setSaving(false);
+      return;
+    }
+
+    // Reload exercises from backend to get the latest list
+    const exercisesData = await fetchExercisesFromSheet();
+    setExercises(exercisesData);
+
     setForm(prev => ({
       ...prev,
       actionZh: newExercise.zh,
@@ -213,7 +247,8 @@ function App() {
     setCurrentExerciseType(newExercise.type || "strength");
     setNewExercise({ zh: "", en: "", targetMuscle: "", type: "strength" });
     setShowAddExercise(false);
-    setMessage("已新增動作！");
+    setMessage("已新增動作並同步至 Google Sheets！");
+    setSaving(false);
   };
 
   const updateSet = (index: number, field: keyof typeof form.sets[0], value: string) => {
@@ -540,7 +575,7 @@ function App() {
                       今日已完成組數 ({todayHistory.sets.length} 組)
                     </h4>
                     <div className="today-sets-list">
-                      {todayHistory.sets.map((s, i) => (
+                      {[...todayHistory.sets].reverse().map((s, i) => (
                         <span key={i} className="today-set-badge">
                           Set {i + 1}: {s.weight}kg × {s.reps}
                         </span>
@@ -675,48 +710,76 @@ function App() {
             ) : logs.length === 0 ? (
               <p>目前沒有紀錄</p>
             ) : (
-              <div className="table">
-                <div className="table-head">
-                  <span>日期</span>
-                  <span>動作</span>
-                  <span>內容詳情</span>
-                  <span>RPE</span>
-                  <span>備註</span>
-                  <span>下次目標</span>
-                </div>
-                {logs.map((row, idx) => {
-                  // Determine display style based on content roughly
-                  const isCardio = row.sets.some(s => String(s.weight || '').includes("Spd") || String(s.reps || '').includes("min"));
-
-                  return (
-                    <div className="table-row" key={row.id ?? idx}>
-                      <span data-label="日期：">{row.currentDate}</span>
-                      <span data-label="動作：">
-                        {row.actionZh}
-                        {row.actionEn ? ` / ${row.actionEn}` : ""}
-                      </span>
-                      <span className="sets-display" data-label="組數：">
-                        {row.sets && row.sets.length > 0
-                          ? row.sets
-                            .filter(s => s.weight || s.reps)
-                            .map((s, i) => {
-                              if (isCardio) {
-                                // Clean up the cardio display string
-                                // Backend stores: Weight="Spd:6.5 Incline:2", Reps="30 min"
-                                // We can display it cleanly.
-                                return `${i + 1}. ${s.reps} (${s.weight})`;
-                              }
-                              return `${i + 1}. ${s.weight}kg×${s.reps}`;
-                            })
-                            .join(" | ")
-                          : "-"}
-                      </span>
-                      <span data-label="RPE：">{row.rpe}</span>
-                      <span className="notes-cell" data-label="備註：">{row.notes}</span>
-                      <span data-label="下次目標：">{row.nextTarget}</span>
+              <div className="history-list">
+                {groupedLogs.map((group) => (
+                  <div key={group.date} className="history-date-group">
+                    <div className="history-date-header">
+                      <Calendar size={18} />
+                      <span>{group.date}</span>
                     </div>
-                  );
-                })}
+                    <div className="history-items-container">
+                      {group.items.map((row, idx) => {
+                        const isCardio = row.sets.some(s => String(s.weight || '').includes("Spd") || String(s.reps || '').includes("min"));
+
+                        return (
+                          <div className="history-card" key={row.id ?? idx}>
+                            <div className="history-card-header">
+                              <span className="history-action-name">
+                                {row.actionZh}
+                                {row.actionEn && <span className="en-name"> {row.actionEn}</span>}
+                              </span>
+                              {row.rpe && <span className="history-rpe">RPE: {row.rpe}</span>}
+                            </div>
+
+                            <div className="history-card-content">
+                              <div className="history-sets">
+                                {row.sets && row.sets.length > 0 ? (
+                                  <div className="sets-list">
+                                    {row.sets
+                                      .filter(s => s.weight || s.reps)
+                                      .map((s, i) => {
+                                        if (isCardio) {
+                                          return (
+                                            <div key={i} className="set-item">
+                                              <span className="set-tag">#{i + 1}</span>
+                                              <span className="set-val">{s.reps} ({s.weight})</span>
+                                            </div>
+                                          );
+                                        }
+                                        return (
+                                          <div key={i} className="set-item">
+                                            <span className="set-tag">#{i + 1}</span>
+                                            <span className="set-val">{s.weight}kg × {s.reps}</span>
+                                          </div>
+                                        );
+                                      })}
+                                  </div>
+                                ) : (
+                                  <span className="no-sets">-</span>
+                                )}
+                              </div>
+
+                              {(row.notes || row.nextTarget) && (
+                                <div className="history-footer">
+                                  {row.notes && (
+                                    <div className="history-note">
+                                      <span className="label">備註:</span> {row.notes}
+                                    </div>
+                                  )}
+                                  {row.nextTarget && (
+                                    <div className="history-target">
+                                      <span className="label">目標:</span> {row.nextTarget}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </section>

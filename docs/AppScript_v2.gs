@@ -54,6 +54,10 @@ function doPost(e) {
       return addLog(user, body);
     }
     
+    if (action === "exercises") {
+      return addExercise(body);
+    }
+    
     return response({ error: "Unknown action" });
     
   } catch (err) {
@@ -209,6 +213,50 @@ function getExercises() {
       }));
     
     return response(exercises);
+  } catch (err) {
+    return response({ error: err.toString() });
+  }
+}
+
+function addExercise(data) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName("Exercises");
+    
+    // Create Exercises sheet if it doesn't exist
+    if (!sheet) {
+      sheet = ss.insertSheet("Exercises");
+      // Add headers
+      sheet.getRange(1, 1, 1, 4).setValues([["ActionZh", "ActionEn", "TargetMuscle", "Type"]]);
+    }
+    
+    // Validate required field
+    if (!data.zh || !data.zh.trim()) {
+      return response({ error: "動作中文名稱為必填" });
+    }
+    
+    // Check for duplicates
+    const lastRow = sheet.getLastRow();
+    if (lastRow > 1) {
+      const existingData = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+      const exists = existingData.some(row => row[0] === data.zh.trim());
+      if (exists) {
+        return response({ error: "此動作已存在" });
+      }
+    }
+    
+    // Prepare new row
+    const newRow = [
+      data.zh.trim(),
+      data.en ? data.en.trim() : "",
+      data.targetMuscle ? data.targetMuscle.trim() : "",
+      data.type || "strength"
+    ];
+    
+    // Append to sheet
+    sheet.appendRow(newRow);
+    
+    return response({ message: "動作新增成功" });
   } catch (err) {
     return response({ error: err.toString() });
   }
