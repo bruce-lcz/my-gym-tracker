@@ -61,13 +61,43 @@ export async function fetchExercisesFromSheet(): Promise<Exercise[]> {
 }
 
 /**
- * 儲存使用者自訂動作到 localStorage
+ * 儲存使用者自訂動作到 Google Sheets 並同步到 localStorage
  */
-export function saveCustomExercise(exercise: Exercise): void {
-  const custom = getCustomExercises();
-  custom.push(exercise);
-  localStorage.setItem("customExercises", JSON.stringify(custom));
-  console.log(`✅ 已儲存自訂動作: ${exercise.zh}`);
+export async function saveCustomExercise(exercise: Exercise): Promise<{ ok: boolean; error?: string }> {
+  try {
+    // First, sync to backend (Google Sheets)
+    const { createExercise } = await import("./api");
+    const res = await createExercise({
+      zh: exercise.zh,
+      en: exercise.en || "",
+      targetMuscle: exercise.targetMuscle || "",
+      type: exercise.type || "strength"
+    });
+
+    if (!res.ok) {
+      // If backend fails, still save to localStorage as fallback
+      console.warn("⚠️ 無法同步到 Google Sheets，已儲存至本地:", res.error);
+      const custom = getCustomExercises();
+      custom.push(exercise);
+      localStorage.setItem("customExercises", JSON.stringify(custom));
+      return { ok: false, error: res.error };
+    }
+
+    // Success: also save to localStorage for offline access
+    const custom = getCustomExercises();
+    custom.push(exercise);
+    localStorage.setItem("customExercises", JSON.stringify(custom));
+    console.log(`✅ 已儲存自訂動作到 Google Sheets 與本地: ${exercise.zh}`);
+    return { ok: true };
+
+  } catch (error) {
+    // Network error or other issues: save to localStorage only
+    console.error("❌ 同步失敗，已儲存至本地:", error);
+    const custom = getCustomExercises();
+    custom.push(exercise);
+    localStorage.setItem("customExercises", JSON.stringify(custom));
+    return { ok: false, error: error instanceof Error ? error.message : "同步失敗" };
+  }
 }
 
 /**

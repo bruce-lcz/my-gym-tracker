@@ -135,3 +135,15 @@ export const fetchExercises = async () => {
   return { ok: true, data: res.data };
 };
 
+export const createExercise = (payload: {
+  zh: string;
+  en: string;
+  targetMuscle: string;
+  type?: "strength" | "cardio";
+}) =>
+  request<{ message: string }>({
+    method: "POST",
+    body: payload,
+    params: { action: "exercises" }
+  });
+
