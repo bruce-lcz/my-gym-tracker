@@ -119,7 +119,7 @@ export default function ExerciseDetail({ exerciseName, logs, color = "#FF8042" }
                             <div key={log.id || idx} className="history-item">
                                 <div className="history-date">{log.currentDate}</div>
                                 <div className="history-sets">
-                                    {log.sets.map((s, i) => (
+                                    {[...log.sets].reverse().map((s, i) => (
                                         <span key={i} className="set-tag">
                                             {s.weight}kg × {s.reps}
                                         </span>
