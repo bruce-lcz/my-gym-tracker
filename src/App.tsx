@@ -6,6 +6,7 @@ import { loadExercises, saveCustomExercise, Exercise, fetchExercisesFromSheet } 
 import { loadChangelog } from "./changelogParser";
 import { MOCK_LOGS } from "./mockData";
 import Dashboard from "./Dashboard";
+import AICoach from "./AICoach";
 import {
   Dumbbell,
   History,
@@ -27,7 +28,8 @@ import {
   Users,
   Timer,
   Activity,
-  Gauge
+  Gauge,
+  Sparkles
 } from "lucide-react";
 
 // 取得本地日期（台北時間）格式 YYYY-MM-DD
@@ -54,7 +56,7 @@ const emptyLog: TrainingLog = {
 };
 
 function App() {
-  const [activeTab, setActiveTab] = useState<"training" | "history" | "dashboard">("training");
+  const [activeTab, setActiveTab] = useState<"training" | "history" | "dashboard" | "ai-coach">("training");
   const [user, setUser] = useState<User>("Bruce");
   const [form, setForm] = useState<TrainingLog>(emptyLog);
   const [logs, setLogs] = useState<TrainingLog[]>([]);
@@ -359,6 +361,17 @@ function App() {
           >
             <BarChart3 size={20} />
             {!sidebarCollapsed && <span>統計儀表板</span>}
+          </button>
+          <button
+            className={`sidebar-item ${activeTab === "ai-coach" ? "active" : ""}`}
+            onClick={() => {
+              setActiveTab("ai-coach");
+              setMobileSidebarOpen(false);
+            }}
+            title="AI 助理教練"
+          >
+            <Sparkles size={20} />
+            {!sidebarCollapsed && <span>AI 助理教練</span>}
           </button>
         </nav>
 
@@ -795,6 +808,14 @@ function App() {
               setMessage("已載入範例資料 (僅供瀏覽)");
               setTimeout(() => setMessage(null), 3000);
             }}
+          />
+        )}
+
+        {/* AI Coach Tab */}
+        {activeTab === "ai-coach" && (
+          <AICoach
+            user={user}
+            logs={logs}
           />
         )}
       </div>
