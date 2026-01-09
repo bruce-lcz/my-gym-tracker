@@ -57,6 +57,10 @@ function doPost(e) {
     if (action === "exercises") {
       return addExercise(body);
     }
+
+    if (action === "ai_analysis") {
+      return saveAIAnalysis(user, body);
+    }
     
     return response({ error: "Unknown action" });
     
@@ -82,12 +86,67 @@ function doGet(e) {
     if (action === "exercises") {
       return getExercises();
     }
+
+    if (action === "ai_analysis") {
+      return getAIAnalyses(user);
+    }
     
     return response({ error: "Unknown action" });
     
   } catch (err) {
     return response({ error: err.toString() });
   }
+}
+
+function getAIAnalyses(user) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetName = "AI_Analysis";
+  let sheet = ss.getSheetByName(sheetName);
+  
+  if (!sheet) {
+    return response([]);
+  }
+  
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) {
+    return response([]);
+  }
+  
+  const data = sheet.getRange(2, 1, lastRow - 1, 4).getValues();
+  // Filter for user and Map to object
+  // Headers: [ID, User, Content, Timestamp]
+  const analyses = data
+    .filter(row => row[1] === user)
+    .map(row => ({
+      id: row[0],
+      user: row[1],
+      content: row[2],
+      timestamp: row[3]
+    })).reverse();
+    
+  return response(analyses);
+}
+
+function saveAIAnalysis(user, data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetName = "AI_Analysis";
+  let sheet = ss.getSheetByName(sheetName);
+  
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    sheet.getRange(1, 1, 1, 4).setValues([["ID", "User", "Content", "Timestamp"]]);
+  }
+  
+  const timestamp = new Date().toISOString();
+  const row = [
+    Utilities.getUuid(),
+    user,
+    data.content,
+    timestamp
+  ];
+  
+  sheet.appendRow(row);
+  return response({ message: "AI Analysis saved" });
 }
 
 function getSheet(user) {
