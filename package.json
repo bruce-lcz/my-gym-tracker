@@ -10,9 +10,13 @@
   },
   "dependencies": {
     "lucide-react": "^0.561.0",
+    "openai": "^6.15.0",
     "react": "^18.3.1",
+    "react-body-highlighter": "^2.0.5",
     "react-dom": "^18.3.1",
-    "recharts": "^3.6.0"
+    "react-markdown": "^10.1.0",
+    "recharts": "^3.6.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@types/node": "^25.0.3",
