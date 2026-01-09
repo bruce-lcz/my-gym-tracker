@@ -1,5 +1,5 @@
 import { APP_CONFIG, defaultHeaders } from "./config";
-import { ApiResult, TrainingLog, RawLog, User } from "./types";
+import { ApiResult, TrainingLog, RawLog, User, AIAnalysis } from "./types";
 
 type FetchOptions = {
   method: "GET" | "POST";
@@ -147,3 +147,18 @@ export const createExercise = (payload: {
     params: { action: "exercises" }
   });
 
+
+export const saveAIAnalysis = (user: User, content: string) =>
+  request<{ message: string }>({
+    method: "POST",
+    body: { content },
+    params: { action: "ai_analysis", user }
+  });
+
+export const fetchAIAnalysis = async (user: User) => {
+  const res = await request<AIAnalysis[]>({
+    method: "GET",
+    params: { action: "ai_analysis", user }
+  });
+  return res;
+};

@@ -15,12 +15,13 @@ import {
 } from "recharts";
 import { TrainingLog } from "./types";
 import ExerciseDetail from "./components/ExerciseDetail";
+import MuscleVisualizer from "./components/MuscleVisualizer";
 
 
-// Green/Nature Tones for Bruce
-const BRUCE_COLORS = ["#6b8b7e", "#8bb4a5", "#4f7d6d", "#a4c4b8", "#5c7a6e"];
-// Maillard/Earthy Tones for Linda
-const LINDA_COLORS = ["#8c6b5d", "#cbb8ae", "#5e4035", "#ac8b7d", "#e6dfd9"];
+// Green/Nature Tones for Bruce (High Contrast Mix)
+const BRUCE_COLORS = ["#2E8B57", "#20B2AA", "#9ACD32", "#4682B4", "#5F9EA0", "#66CDAA"];
+// Maillard/Earthy Tones for Linda (High Contrast Mix)
+const LINDA_COLORS = ["#8D6E63", "#FF7043", "#FFA726", "#78909C", "#D4E157", "#A1887F"];
 
 const DEFAULT_COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
 
@@ -33,6 +34,18 @@ interface DashboardProps {
 export default function Dashboard({ user, logs, onLoadDemoData }: DashboardProps) {
     const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
     const detailRef = useRef<HTMLDivElement>(null);
+
+    // 響應式圖表高度
+    const [chartHeight, setChartHeight] = useState(window.innerWidth < 768 ? 250 : 300);
+
+    useEffect(() => {
+        const handleResize = () => {
+            setChartHeight(window.innerWidth < 768 ? 250 : 300);
+        };
+
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     const chartColors = useMemo(() => {
         if (user === "Linda") return LINDA_COLORS;
@@ -175,10 +188,23 @@ export default function Dashboard({ user, logs, onLoadDemoData }: DashboardProps
     return (
         <div className="dashboard-container" style={{ padding: "0 10px", paddingBottom: "80px" }}>
 
+            {/* Muscle Visualization */}
+            <section className="card">
+                <h3>🔥 肌力狀態熱圖</h3>
+                <MuscleVisualizer
+                    logs={logs}
+                    user={user}
+                    onMuscleClick={(muscle, exercises, frequency) => {
+                        // 可以在這裡實現點擊肌群後的互動效果
+                        console.log(`Clicked muscle: ${muscle}, Exercises: ${exercises}, Frequency: ${frequency}`);
+                    }}
+                />
+            </section>
+
             {/* Chart 1: Muscle Distribution */}
             <section className="card">
                 <h3>💪 訓練部位分佈</h3>
-                <div style={{ width: "100%", height: 300 }}>
+                <div style={{ width: "100%", height: chartHeight }}>
                     <ResponsiveContainer>
                         <PieChart>
                             <Pie
@@ -189,14 +215,23 @@ export default function Dashboard({ user, logs, onLoadDemoData }: DashboardProps
                                 outerRadius={80}
                                 paddingAngle={5}
                                 dataKey="value"
-                                label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                                label={({ percent }) => {
+                                    const percentValue = ((percent || 0) * 100).toFixed(0);
+                                    // 只顯示大於 5% 的標籤，避免過於擁擠
+                                    return parseFloat(percentValue) > 5 ? `${percentValue}%` : '';
+                                }}
+                                labelLine={false}
                             >
                                 {muscleData.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
                                 ))}
                             </Pie>
                             <Tooltip />
-                            <Legend verticalAlign="bottom" height={36} />
+                            <Legend
+                                verticalAlign="bottom"
+                                height={60}
+                                wrapperStyle={{ fontSize: '0.85rem' }}
+                            />
                         </PieChart>
                     </ResponsiveContainer>
                 </div>
@@ -205,7 +240,7 @@ export default function Dashboard({ user, logs, onLoadDemoData }: DashboardProps
             {/* Chart 2: Top Exercises */}
             <section className="card">
                 <h3>🏆 最常練的動作 {selectedExercise && <span style={{ fontSize: '0.8rem', fontWeight: 'normal', color: 'var(--text-secondary)' }}>(已選擇: {selectedExercise})</span>}</h3>
-                <div style={{ width: "100%", height: 300 }}>
+                <div style={{ width: "100%", height: chartHeight }}>
                     <ResponsiveContainer>
                         <BarChart
                             data={topExercises}

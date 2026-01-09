@@ -53,3 +53,10 @@ export type ApiResult<T> = {
   error?: string;
 };
 
+export type AIAnalysis = {
+  id?: string;
+  user: User;
+  content: string;
+  date: string;
+  timestamp?: string;
+};
