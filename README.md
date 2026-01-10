@@ -23,12 +23,14 @@ This is more than just a logging tool—it's a showcase of **"how to achieve zer
 
 - 📝 **Smart Training Logs**: Auto-fill previous session data for quick weight, reps, RPE, and notes entry.
 - 📊 **Interactive Dashboard**: Visualize training distribution, track progress with dynamic charts, and drill down into exercise-specific stats.
+- 🤖 **AI Assistant Coach**: Generates personalized training advice by analyzing your workout frequency, volume, and muscle balance to help optimize your routine.
 - 🏃 **Cardio Support**: Dedicated inputs for speed, incline, and time—seamlessly integrated with existing data structure.
 - 🎯 **Custom Exercise Library**: Flexibly add personalized exercises with localStorage persistence.
 - 🌙 **Dark Mode**: Minimalist UI design that adapts to any lighting environment.
 - 👥 **Multi-User Support**: Switch between users (e.g., Bruce & Linda) with personalized themes.
 - 📖 **Version Changelog System**: Auto-parses CHANGELOG.md to display app evolution history.
-- 📱 **Fluid Responsive Design**: Perfectly adapts from desktop to mobile screens.
+- � **Simple Security**: Frontend password protection + Backend token validation for privacy.
+- �📱 **Fluid Responsive Design**: Perfectly adapts from desktop to mobile screens.
 
 ## 🛠 Tech Stack
 
@@ -63,17 +65,23 @@ This is a **side project** I developed to demonstrate my approach to web perform
 
 ---
 
-## 📸 Screenshots
+## 📸 App Visuals
 
 ### Dashboard Analytics
-Interactive charts with click-to-explore functionality and rich tooltips.
+Interactive 3D muscle visualization and training distribution statistics to track your progress at a glance.
+![Dashboard Analytics](screenshots/dashboard_main.png)
 
-### Training Log
-Smart form with auto-fill and support for both strength and cardio exercises.
+### Training Records History
+Clean, card-based history view showing sets, reps, weights, and RPE for every session.
+![Training Records](screenshots/training_records.png)
 
-### Multi-User Themes
-Personalized color schemes for different users (Bruce: Nature Green / Linda: Maillard Earth Tones).
+### Smart Training Log
+Streamlined data entry with auto-fill capabilities for quick logging during workouts.
+![Add Training](screenshots/add_training.png)
 
+### AI Coach Intelligence
+Built-in AI analyzes your workout frequency, volume, and muscle balance to provide personalized training advice.
+![AI Coach](screenshots/ai_coach.png)
 ---
 
 ## 🚀 Quick Start
