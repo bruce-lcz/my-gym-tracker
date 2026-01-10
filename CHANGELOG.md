@@ -1,5 +1,29 @@
 # 更新日誌
 
+## v1.11.0 - 2026-01-11 🔒
+
+### ✨ 新功能
+
+- **簡易密碼保護 (Simple Password Protection)**
+  - 新增前端密碼驗證頁面 (`Login.tsx`)
+  - 使用者需輸入正確密碼 (`VITE_ACCESS_PASSWORD`) 才能進入應用程式
+  - 阻擋未授權的一般訪問，提升個人隱私
+  - 登入狀態維持 (Session Persistence)
+
+### 🛡️ 安全性更新
+
+- **雙層驗證架構**
+  - **第一層 (前端)**: 密碼鎖定 UI，防止直接瀏覽
+  - **第二層 (後端)**: Google Apps Script Token + Email 白名單，防止惡意 API 呼叫
+  - 更新 `SECURITY.md` 提供詳細的安全建議與密碼更換指南
+
+### 🔧 配置變更
+
+- 新增環境變數 `VITE_ACCESS_PASSWORD`
+- 更新 `.env.example` 範本
+
+---
+
 ## v1.10.0 - 2026-01-10 🤖
 
 ### ✨ 重大新功能
