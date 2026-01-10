@@ -7,6 +7,8 @@ import { loadChangelog } from "./changelogParser";
 import { MOCK_LOGS } from "./mockData";
 import Dashboard from "./Dashboard";
 import AICoach from "./AICoach";
+import { AuthProvider, useAuth } from "./AuthContext";
+import Login from "./Login";
 import {
   Dumbbell,
   History,
@@ -55,7 +57,7 @@ const emptyLog: TrainingLog = {
   nextTarget: ""
 };
 
-function App() {
+function AppContent() {
   const [activeTab, setActiveTab] = useState<"training" | "history" | "dashboard" | "ai-coach">("training");
   const [user, setUser] = useState<User>("Bruce");
   const [form, setForm] = useState<TrainingLog>(emptyLog);
@@ -881,5 +883,23 @@ function App() {
   );
 }
 
-export default App;
+function App() {
+  const { isAuthenticated } = useAuth();
+
+  if (!isAuthenticated) {
+    return <Login />;
+  }
+
+  return <AppContent />;
+}
+
+function WrappedApp() {
+  return (
+    <AuthProvider>
+      <App />
+    </AuthProvider>
+  );
+}
+
+export default WrappedApp;
 
