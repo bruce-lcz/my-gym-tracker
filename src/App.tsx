@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { createLog, fetchLogs } from "./api";
 import { APP_CONFIG } from "./config";
-import { TrainingLog, ReleaseNote, User } from "./types";
+import { TrainingLog, ReleaseNote, User, PlanItem } from "./types";
 import { loadExercises, saveCustomExercise, Exercise, fetchExercisesFromSheet } from "./exerciseData";
+import { translateExercise } from "./llmService";
 import { loadChangelog } from "./changelogParser";
 import { MOCK_LOGS } from "./mockData";
 import Dashboard from "./Dashboard";
 import AICoach from "./AICoach";
 import { AuthProvider, useAuth } from "./AuthContext";
 import Login from "./Login";
+import WorkoutMenu from "./components/WorkoutMenu";
 import {
   Dumbbell,
   History,
@@ -31,7 +33,9 @@ import {
   Timer,
   Activity,
   Gauge,
-  Sparkles
+  Sparkles,
+  Database,
+  ClipboardList
 } from "lucide-react";
 
 // 取得本地日期（台北時間）格式 YYYY-MM-DD
@@ -58,8 +62,9 @@ const emptyLog: TrainingLog = {
 };
 
 function AppContent() {
-  const [activeTab, setActiveTab] = useState<"training" | "history" | "dashboard" | "ai-coach">("training");
-  const [user, setUser] = useState<User>("Bruce");
+  const { currentUser } = useAuth();
+  const [activeTab, setActiveTab] = useState<"training" | "menu" | "history" | "dashboard" | "ai-coach">("training");
+  const [user, setUser] = useState<User>(currentUser || "Bruce");
   const [form, setForm] = useState<TrainingLog>(emptyLog);
   const [logs, setLogs] = useState<TrainingLog[]>([]);
   const [loading, setLoading] = useState(false);
@@ -72,6 +77,7 @@ function AppContent() {
   const [exercises, setExercises] = useState<Exercise[]>(() => loadExercises());
   const [showAddExercise, setShowAddExercise] = useState(false);
   const [newExercise, setNewExercise] = useState<Exercise>({ zh: "", en: "", targetMuscle: "", type: "strength" });
+  const [translating, setTranslating] = useState(false);
   const [currentExerciseType, setCurrentExerciseType] = useState<"strength" | "cardio">("strength");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem("sidebarCollapsed");
@@ -136,7 +142,13 @@ function AppContent() {
     localStorage.setItem("theme", theme);
   }, [theme]);
 
-  // Sync User Theme
+  // Sync User Theme and initialize user from auth
+  useEffect(() => {
+    if (currentUser) {
+      setUser(currentUser);
+    }
+  }, [currentUser]);
+
   useEffect(() => {
     document.documentElement.setAttribute("data-user", user);
   }, [user]);
@@ -177,14 +189,17 @@ function AppContent() {
     setTheme(prev => (prev === "light" ? "dark" : "light"));
   };
 
-  const toggleUser = () => {
-    setUser(prev => prev === "Bruce" ? "Linda" : "Bruce");
-  };
-
   const toggleSidebar = () => {
     const newState = !sidebarCollapsed;
     setSidebarCollapsed(newState);
     localStorage.setItem("sidebarCollapsed", JSON.stringify(newState));
+  };
+
+  const handleClearLocalStorage = () => {
+    if (window.confirm("確定要清空所有本地暫存資料嗎？這將清除主題設定、側邊欄狀態等本地資料，並重新載入頁面。")) {
+      localStorage.clear();
+      window.location.reload();
+    }
   };
 
   const [todayHistory, setTodayHistory] = useState<TrainingLog | null>(null);
@@ -221,9 +236,37 @@ function AppContent() {
     }
   };
 
+  const handleTranslateExercise = async () => {
+    if (!newExercise.en.trim()) {
+      setError("請輸入英文動作名稱");
+      return;
+    }
+
+    setTranslating(true);
+    setError(null);
+
+    const result = await translateExercise(newExercise.en);
+    setTranslating(false);
+
+    if (!result.ok) {
+      setError(result.error || "翻譯失敗");
+      return;
+    }
+
+    if (result.data) {
+      setNewExercise(prev => ({
+        ...prev,
+        zh: result.data!.chineseName,
+        targetMuscle: result.data!.targetMuscle
+      }));
+      setMessage("已自動生成中文名稱和訓練肌群！");
+      setTimeout(() => setMessage(null), 3000);
+    }
+  };
+
   const handleAddExercise = async () => {
     if (!newExercise.zh.trim()) {
-      setError("請至少填寫動作中文名稱");
+      setError("請填寫動作中文名稱");
       return;
     }
 
@@ -322,8 +365,60 @@ function AppContent() {
     if (refresh.ok && refresh.data) setLogs(refresh.data);
   };
 
+  // Fitness Menu (Daily Plan) State
+  const [dailyPlan, setDailyPlan] = useState<PlanItem[]>(() => {
+    const saved = localStorage.getItem("dailyPlan");
+    return saved ? JSON.parse(saved) : [];
+  });
+  // showImportPlan, importJson removed - handled in WorkoutMenu
+  const [planCompletedItems, setPlanCompletedItems] = useState<string[]>([]);
+
+  // Check which items are completed based on today's logs
+  useEffect(() => {
+    const today = getLocalDate();
+    const completed = logs
+      .filter(log => log.currentDate === today)
+      .map(log => log.actionZh);
+    setPlanCompletedItems(completed);
+  }, [logs]);
+
+  // handleImportPlan removed - handled in WorkoutMenu
+
+  const handleUsePlanItem = (item: PlanItem) => {
+    // 1. Try to find the exercise in our list
+    const foundExercise = exercises.find(ex => ex.zh === item.action || ex.en === item.action);
+
+    // If not found, we might want to alert or just proceed with matched name
+    const exerciseName = foundExercise ? foundExercise.zh : item.action;
+
+    // Trigger basic selection logic (sets up muscle target, etc.)
+    handleExerciseSelect(exerciseName);
+
+    // 2. Override sets with planned values
+    // Create 'sets' array based on plan
+    const newSets = Array.from({ length: item.sets }).map(() => ({
+      weight: item.weight || "", // Pre-fill weight if in plan, else empty
+      reps: item.reps,
+      incline: "", speed: "", time: ""
+    }));
+
+    setForm(prev => ({
+      ...prev,
+      actionZh: exerciseName,
+      // If found, update other fields, else keep what handleExerciseSelect might have missed (if it failed)
+      // Actually handleExerciseSelect handles metadata if found. 
+      // If not found, we manually set actionZh at least.
+      sets: newSets
+    }));
+
+    // Scroll to top or form (optional, naturally likely inplace)
+  };
+
+  // ----------------------------------------------------------------
+
   return (
     <div className="app-container">
+
       {/* Mobile Sidebar Overlay */}
       <div
         className={`mobile-sidebar-overlay ${mobileSidebarOpen ? "open" : ""}`}
@@ -389,17 +484,10 @@ function AppContent() {
             <FileText size={20} />
             {!sidebarCollapsed && <span>版本紀錄</span>}
           </button>
-          <button
-            className="sidebar-item theme-toggle-sidebar"
-            onClick={() => {
-              toggleUser();
-              setMobileSidebarOpen(false);
-            }}
-            title={`切換使用者 (目前: ${user})`}
-          >
+          <div className="sidebar-item user-display" title={`目前使用者: ${user}`}>
             <Users size={20} />
             {!sidebarCollapsed && <span>{user}</span>}
-          </button>
+          </div>
           <button
             className="sidebar-item theme-toggle-sidebar"
             onClick={() => {
@@ -410,6 +498,17 @@ function AppContent() {
           >
             {theme === "light" ? <Moon size={20} /> : <Sun size={20} />}
             {!sidebarCollapsed && <span>{theme === "light" ? "深色模式" : "淺色模式"}</span>}
+          </button>
+          <button
+            className="sidebar-item clear-storage-btn"
+            onClick={() => {
+              handleClearLocalStorage();
+              setMobileSidebarOpen(false);
+            }}
+            title="清空本地暫存資料"
+          >
+            <Database size={20} />
+            {!sidebarCollapsed && <span>清空本地資料</span>}
           </button>
         </div>
       </aside>
@@ -446,6 +545,13 @@ function AppContent() {
               <span>新增訓練</span>
             </button>
             <button
+              className={`tab ${activeTab === "menu" ? "active" : ""}`}
+              onClick={() => setActiveTab("menu")}
+            >
+              <ClipboardList size={18} />
+              <span>今日菜單</span>
+            </button>
+            <button
               className={`tab ${activeTab === "history" ? "active" : ""}`}
               onClick={() => setActiveTab("history")}
             >
@@ -455,67 +561,105 @@ function AppContent() {
           </nav>
         </header>
 
+        {/* Daily Plan Tab */}
+        {activeTab === "menu" && (
+          <WorkoutMenu
+            dailyPlan={dailyPlan}
+            setDailyPlan={setDailyPlan}
+            onUsePlanItem={handleUsePlanItem}
+            planCompletedItems={planCompletedItems}
+            exercises={exercises}
+          />
+        )}
+
         {/* Training Form Tab */}
         {activeTab === "training" && (
           <section className="card">
             <h2><Edit size={22} className="section-icon" /> 新增 / 更新紀錄</h2>
             <form onSubmit={handleSubmit} className="grid">
-              <label>
-                動作名稱
-                <div className="select-wrapper">
-                  <select
-                    value={form.actionZh}
-                    onChange={e => handleExerciseSelect(e.target.value)}
-                    required
+              <div className="form-row">
+                <label className="exercise-group">
+                  動作名稱
+                  <div className="select-wrapper">
+                    <select
+                      value={form.actionZh}
+                      onChange={e => handleExerciseSelect(e.target.value)}
+                      required
+                    >
+                      <option value="">-- 選擇動作 --</option>
+                      {exercises.map((ex, idx) => (
+                        <option key={idx} value={ex.zh}>
+                          {ex.zh} {ex.en ? `/ ${ex.en}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </label>
+                <label className="muscle-group">
+                  <span style={{ opacity: 0.6 }}>目標肌群（自動填入）</span>
+                  <input
+                    value={form.targetMuscle}
+                    readOnly
+                    placeholder="選擇動作後自動填入"
+                    style={{ cursor: "not-allowed", opacity: 0.7 }}
+                  />
+                </label>
+                <div className="add-btn-group">
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => setShowAddExercise(!showAddExercise)}
+                    style={{ display: "flex", alignItems: "center", gap: "6px" }}
                   >
-                    <option value="">-- 選擇動作 --</option>
-                    {exercises.map((ex, idx) => (
-                      <option key={idx} value={ex.zh}>
-                        {ex.zh} {ex.en ? `/ ${ex.en}` : ""}
-                      </option>
-                    ))}
-                  </select>
+                    {showAddExercise ? <Trash2 size={16} /> : <Plus size={16} />}
+                    {showAddExercise ? "取消新增" : "新增自訂動作"}
+                  </button>
                 </div>
-              </label>
-              <label>
-                <span style={{ opacity: 0.6 }}>目標肌群（自動填入）</span>
-                <input
-                  value={form.targetMuscle}
-                  readOnly
-                  placeholder="選擇動作後自動填入"
-                  style={{ cursor: "not-allowed", opacity: 0.7 }}
-                />
-              </label>
-              <div className="add-exercise-btn-wrapper">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setShowAddExercise(!showAddExercise)}
-                  style={{ display: "flex", alignItems: "center", gap: "6px" }}
-                >
-                  {showAddExercise ? <Trash2 size={16} /> : <Plus size={16} />}
-                  {showAddExercise ? "取消新增" : "新增自訂動作"}
-                </button>
               </div>
               {showAddExercise && (
                 <>
                   <div className="full add-exercise-form">
                     <h3>新增自訂動作</h3>
+                    <p style={{ fontSize: "0.9rem", color: "var(--text-secondary)", marginBottom: "16px" }}>
+                      💡 只需輸入英文動作名稱，點擊「AI 生成」即可自動生成中文名稱和訓練肌群
+                    </p>
                     <div className="grid">
+                      <label>
+                        動作名稱 (英文) *
+                        <input
+                          value={newExercise.en}
+                          onChange={e => setNewExercise(prev => ({ ...prev, en: e.target.value }))}
+                          placeholder="如：Dumbbell Fly"
+                        />
+                      </label>
+                      <div style={{ display: "flex", alignItems: "flex-end" }}>
+                        <button
+                          type="button"
+                          onClick={handleTranslateExercise}
+                          disabled={translating || !newExercise.en.trim()}
+                          className="btn-secondary"
+                          style={{ display: "flex", alignItems: "center", gap: "6px", width: "100%" }}
+                        >
+                          {translating ? (
+                            <>
+                              <span className="spin-animation">🔄</span>
+                              生成中...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles size={16} />
+                              AI 生成
+                            </>
+                          )}
+                        </button>
+                      </div>
                       <label>
                         動作名稱 (中文) *
                         <input
                           value={newExercise.zh}
                           onChange={e => setNewExercise(prev => ({ ...prev, zh: e.target.value }))}
                           placeholder="如：啞鈴飛鳥"
-                        />
-                      </label>
-                      <label>
-                        動作名稱 (英文)
-                        <input
-                          value={newExercise.en}
-                          onChange={e => setNewExercise(prev => ({ ...prev, en: e.target.value }))}
-                          placeholder="如：Dumbbell Fly"
+                          style={{ background: newExercise.zh ? "var(--primary-bg-subtle)" : "var(--input-bg)" }}
                         />
                       </label>
                       <label>
@@ -524,6 +668,7 @@ function AppContent() {
                           value={newExercise.targetMuscle}
                           onChange={e => setNewExercise(prev => ({ ...prev, targetMuscle: e.target.value }))}
                           placeholder="如：胸大肌"
+                          style={{ background: newExercise.targetMuscle ? "var(--primary-bg-subtle)" : "var(--input-bg)" }}
                         />
                       </label>
                       <label className="full">
@@ -552,15 +697,16 @@ function AppContent() {
                         </div>
                       </label>
                       <div className="add-exercise-actions">
-                        <button type="button" onClick={handleAddExercise} className="btn-primary" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <button type="button" onClick={handleAddExercise} disabled={saving || !newExercise.zh.trim()} className="btn-primary" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                           <Check size={16} />
-                          確認新增
+                          {saving ? "儲存中..." : "確認新增"}
                         </button>
                       </div>
                     </div>
                   </div>
                 </>
               )}
+
 
               {form.lastDate && (
                 <div className="last-record-info">

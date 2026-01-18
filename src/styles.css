@@ -351,6 +351,46 @@ header p {
   gap: 16px 18px;
 }
 
+.form-row {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+}
+
+.form-row label {
+  margin-bottom: 0;
+  /* Override potential margins */
+}
+
+/* Specific flex ratios for the top form row */
+.form-row .exercise-group {
+  flex: 1.8;
+  min-width: 200px;
+}
+
+.form-row .muscle-group {
+  flex: 1;
+  min-width: 150px;
+}
+
+.form-row .add-btn-group {
+  flex: 0 0 auto;
+  padding-bottom: 2px;
+  /* Visual alignment fix with inputs */
+}
+
+@media (max-width: 700px) {
+  .form-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .form-row .add-btn-group button {
+    width: 100%;
+  }
+}
+
 label {
   display: flex;
   flex-direction: column;
@@ -1868,6 +1908,7 @@ button:not(:disabled):active {
   border-bottom: 1px solid var(--card-border);
   padding-bottom: 12px;
 }
+
 /* AI Coach Mobile Optimizations */
 @media (max-width: 600px) {
   .ai-stats-grid {
@@ -1928,11 +1969,11 @@ button:not(:disabled):active {
     padding: 10px !important;
   }
 
-  .stat-card > div:nth-child(2) {
+  .stat-card>div:nth-child(2) {
     font-size: 1.5rem !important;
   }
 
-  .stat-card > div:nth-child(3) {
+  .stat-card>div:nth-child(3) {
     font-size: 0.8rem !important;
   }
 
@@ -1956,4 +1997,14 @@ button:not(:disabled):active {
   .ai-coach-content h3 {
     font-size: 0.95rem;
   }
+}
+
+/* Clear Storage Button - Warning Style */
+.clear-storage-btn {
+  color: var(--warn-color) !important;
+}
+
+.clear-storage-btn:hover {
+  background: var(--warn-bg) !important;
+  border-left-color: var(--warn-color) !important;
 }
