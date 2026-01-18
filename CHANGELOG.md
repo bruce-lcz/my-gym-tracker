@@ -1,5 +1,140 @@
 # 更新日誌
 
+## v1.12.0 - 2026-01-18 🎯
+
+### ✨ 重大新功能
+
+#### 🗂️ 健身菜單系統 (Workout Menu)
+
+- **今日菜單管理**
+  - 新增專屬「健身菜單」Tab，集中管理每日訓練計畫
+  - 視覺化顯示今日菜單，已完成的項目自動標記 ✓
+  - 支援一鍵清空菜單或移除單項
+  - 智能偵測完成狀態，避免重複訓練
+
+- **預設訓練套餐**
+  - **上半身力量** (Upper Power): 胸、背、肩的基礎力量訓練
+  - **下半身力量** (Lower Power): 深蹲、硬舉為主的腿部訓練
+  - **全身循環** (Full Body): 一次練完全身主要肌群
+  - **核心有氧** (Core & Cardio): 強化核心並燃燒脂肪
+  - 每個套餐包含 3-5 個精選動作與建議組數
+
+- **自訂訓練套餐**
+  - 建立個人化訓練套餐，保存常用菜單組合
+  - 支援命名、描述、自由選擇動作與設定組數次數
+  - 可隨時編輯、刪除自訂套餐
+  - 點擊套餐卡片可展開/收起查看完整動作列表
+
+- **雲端同步機制**
+  - 自訂套餐自動同步至 Google Sheets `WorkoutPackages` 分頁
+  - 雙向同步：本地 localStorage + 雲端備份
+  - 同步狀態即時顯示（成功/失敗/同步中）
+  - 離線模式支援，連線後自動同步
+
+- **JSON 匯入功能**
+  - 支援 JSON 格式快速匯入訓練菜單
+  - 提供標準範例與匯入格式說明文件 (`workout_menu_samples.md`)
+  - 適合從教練或 AI 助理獲取菜單後快速載入
+
+#### 🤖 LLM 動作翻譯服務
+
+- **Groq API 整合**
+  - 使用 Llama 3.3 70B 模型進行智能翻譯
+  - 只需輸入英文動作名稱，即可自動生成中文翻譯與目標肌群
+  - 節省手動輸入時間，減少錯誤
+
+- **智能肌群識別**
+  - 自動識別主要訓練肌群（如：胸大肌、三角肌前束、股四頭肌等）
+  - 支援有氧運動識別（跑步機 → 心肺）
+  - 精確的繁體中文健身術語翻譯
+
+- **互動式 UI**
+  - 新增自訂動作表單優化：英文為主要輸入，中文自動填入
+  - AI 生成按鈕帶有載入動畫與錯誤處理
+  - 生成成功後，中文與肌群欄位自動高亮顯示
+
+#### 🔐 雙用戶密碼系統升級
+
+- **多用戶登入模式**
+  - 從單一密碼升級為 Bruce / Linda 雙用戶模式
+  - 各自獨立的密碼：`VITE_BRUCE_PASSWORD` 與 `VITE_LINDA_PASSWORD`
+  - 根據密碼自動識別用戶並切換主題
+
+- **環境變數更新**
+  - 移除 `VITE_ACCESS_PASSWORD`
+  - 新增 `VITE_BRUCE_PASSWORD` 與 `VITE_LINDA_PASSWORD`
+  - 更新 `.env.example` 範本
+
+### 🛠️ 後端與 API 更新
+
+#### Google Apps Script 擴充
+
+- **新增 `WorkoutPackages` 工作表支援**
+  - `getWorkoutPackages()`: 讀取所有自訂菜單套餐
+  - `saveWorkoutPackages()`: 儲存/更新菜單套餐
+  - `deleteWorkoutPackage()`: 刪除單個套餐
+  - 自動建立工作表（如不存在）
+
+- **資料結構**
+  - 欄位：`id`, `name`, `description`, `items` (JSON), `type`, `createdAt`
+  - 支援新增時間戳記與類型標記（preset/custom）
+
+### 📁 新增檔案
+
+- `src/components/WorkoutMenu.tsx` (583 行) - 健身菜單主組件
+- `src/services/workoutPackageSync.ts` (154 行) - 菜單套餐雲端同步服務
+- `src/llmService.ts` (118 行) - LLM 動作翻譯服務
+- `google-apps-script-menu-extension.js` (209 行) - Google Apps Script 菜單功能擴充
+- `workout_menu_samples.md` - JSON 匯入範例與使用說明
+
+### 🎨 UI/UX 改進
+
+- **表單佈局優化**
+  - 動作選擇與肌群顯示改為水平排列
+  - 新增「新增自訂動作」按鈕移至表單內部
+  - 減少視覺雜訊，提升操作流暢度
+
+- **套餐卡片設計**
+  - 點擊展開查看完整動作列表
+  - 懸停效果與互動回饋
+  - 清晰的視覺層次與資訊密度
+
+- **訊息通知系統**
+  - 固定底部圓角通知氣泡
+  - 成功/錯誤訊息自動消失
+  - 同步狀態即時更新
+
+### 🔧 技術改進
+
+- **型別系統擴充**
+  - 新增 `PlanItem` 型別（動作、組數、次數、重量）
+  - 新增 `WorkoutPackage` 型別（套餐結構）
+  - 改善 TypeScript 型別安全
+
+- **狀態管理優化**
+  - 使用 `useEffect` 實現自動同步機制
+  - Debounce 防止過於頻繁的雲端請求
+  - 錯誤處理與降級策略（雲端失敗時使用本地）
+
+### 🔐 環境設定需求
+
+使用完整功能需在 `.env.local` 設定：
+
+```env
+VITE_APP_SCRIPT_URL=https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec
+VITE_APP_TOKEN=your-secret-token-123
+VITE_BRUCE_PASSWORD=your-bruce-password
+VITE_LINDA_PASSWORD=your-linda-password
+VITE_GROQ_API_KEY=your-groq-api-key-here
+```
+
+### 📚 文件更新
+
+- 新增 `workout_menu_samples.md` - 提供 3 種訓練菜單範例與匯入指南
+- 更新 `.env.example` - 反映新的環境變數配置
+
+---
+
 ## v1.11.0 - 2026-01-11 🔒
 
 ### ✨ 新功能
@@ -88,12 +223,14 @@
 ### 🛠️ 後端與 API 更新
 
 #### Google Apps Script
+
 - 新增 `AI_Analysis` 分頁自動建立功能
 - `saveAIAnalysis()`: 儲存 AI 分析內容（使用者、時間戳、唯一 ID）
 - `getAIAnalyses()`: 取得特定使用者的所有歷史分析
 - 改善錯誤處理與驗證機制
 
 #### 前端 API
+
 - `saveAIAnalysis()`: POST 端點儲存 AI 分析
 - `fetchAIAnalysis()`: GET 端點取得分析歷史
 - 新增 `AIAnalysis` 型別定義
@@ -114,6 +251,7 @@
 ### 🔐 環境設定需求
 
 使用 AI 教練功能需在 `.env.local` 設定：
+
 ```env
 VITE_OPENAI_API_KEY=your-openai-api-key-here
 ```
