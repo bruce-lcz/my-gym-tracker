@@ -36,7 +36,8 @@ This is more than just a logging tool—it's a showcase of **"how to achieve zer
 
 ### Frontend
 
-- **Framework**: `React 18` (TypeScript)
+* **Framework**: `React 18` (TypeScript)
+
 * **Build Tool**: `Vite`
 * **Charts**: `Recharts` (for statistical visualizations)
 * **Icons**: `Lucide React`
@@ -44,7 +45,8 @@ This is more than just a logging tool—it's a showcase of **"how to achieve zer
 
 ### Backend & Data
 
-- **API Server**: `Google Apps Script` (GAS)
+* **API Server**: `Google Apps Script` (GAS)
+
 * **Storage**: `Google Sheets`
 * **Auth**: `Apps Script Session Auth` + `Secret Token` dual verification
 
@@ -55,7 +57,7 @@ This is more than just a logging tool—it's a showcase of **"how to achieve zer
 * **Feature Guide**: See [FEATURES.md](./FEATURES.md)
 * **Changelog**: See [CHANGELOG.md](./CHANGELOG.md)
 * **Setup & Deployment**: See [docs/TOKEN_SETUP.md](./docs/TOKEN_SETUP.md)
-* **📦 Workout Menu Cloud Sync**: See [MENU_SYNC_SETUP.md](./MENU_SYNC_SETUP.md) for syncing custom workout packages to Google Sheets
+* **📦 Workout Menu & Cloud Sync**: See [docs/GOOGLE_SHEET_SETUP.md](./docs/GOOGLE_SHEET_SETUP.md) for configuring all data tabs including workout packages.
 
 ---
 

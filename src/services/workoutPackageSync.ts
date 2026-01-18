@@ -4,26 +4,26 @@
  */
 
 import { WorkoutPackage } from '../types';
+import { APP_CONFIG } from '../config';
 
-const scriptUrl = import.meta.env.VITE_APP_SCRIPT_URL || "";
-const token = import.meta.env.VITE_APP_TOKEN || "";
+// Use APP_CONFIG.apiBase to leverage dev proxy (avoids CORS issues in development)
+const apiBase = APP_CONFIG.apiBase;
+const token = APP_CONFIG.token;
 
 /**
  * 從 Google Sheets 讀取所有菜單套餐
  */
 export async function fetchWorkoutPackages(): Promise<WorkoutPackage[]> {
-    if (!scriptUrl) {
+    if (!apiBase) {
         console.warn("Google Apps Script URL not configured, using localStorage only");
         return getLocalPackages();
     }
 
     try {
-        const url = `${scriptUrl}?action=packages&token=${encodeURIComponent(token)}`;
+        const url = `${apiBase}?action=packages&token=${encodeURIComponent(token)}`;
         const response = await fetch(url, {
             method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            // Note: Don't add Content-Type header for GET requests - it triggers CORS preflight
         });
 
         if (!response.ok) {
@@ -58,16 +58,17 @@ export async function saveWorkoutPackages(packages: WorkoutPackage[]): Promise<b
     // 先儲存到 localStorage（立即回饋）
     localStorage.setItem("customPackages", JSON.stringify(packages));
 
-    if (!scriptUrl) {
+    if (!apiBase) {
         console.warn("Google Apps Script URL not configured, saved to localStorage only");
         return true;
     }
 
     try {
-        const response = await fetch(`${scriptUrl}?action=packages&token=${encodeURIComponent(token)}`, {
+        const response = await fetch(`${apiBase}?action=packages&token=${encodeURIComponent(token)}`, {
             method: 'POST',
+            // Use text/plain to avoid CORS preflight (Google Apps Script still parses JSON)
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'text/plain',
             },
             body: JSON.stringify({ packages }),
         });
@@ -101,15 +102,16 @@ export async function deleteWorkoutPackage(packageId: string, allPackages: Worko
     // 先更新 localStorage
     localStorage.setItem("customPackages", JSON.stringify(updatedPackages));
 
-    if (!scriptUrl) {
+    if (!apiBase) {
         return true;
     }
 
     try {
-        const response = await fetch(`${scriptUrl}?action=delete-package&token=${encodeURIComponent(token)}`, {
+        const response = await fetch(`${apiBase}?action=delete-package&token=${encodeURIComponent(token)}`, {
             method: 'POST',
+            // Use text/plain to avoid CORS preflight (Google Apps Script still parses JSON)
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'text/plain',
             },
             body: JSON.stringify({ id: packageId }),
         });

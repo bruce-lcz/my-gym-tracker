@@ -74,4 +74,5 @@ export type WorkoutPackage = {
   description?: string;
   items: PlanItem[];
   type: "preset" | "custom";
+  category?: string;
 };

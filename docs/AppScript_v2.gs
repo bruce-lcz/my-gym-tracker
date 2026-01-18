@@ -1,9 +1,9 @@
 /**
- * GYM TRACKER BACKEND
+ * GYM TRACKER BACKEND (with CORS support)
  * 
  * SETUP INSTRUCTIONS:
  * 1. Create a Google Sheet.
- * 2. Create three sheets (tabs) named exactly: "Bruce", "Linda", and "Exercises".
+ * 2. Create four sheets (tabs) named exactly: "Bruce", "Linda", "Exercises", and "WorkoutPackages".
  * 3. In "Bruce" and "Linda" sheets, set the header row (Row 1) as follows:
  *    [ID, Date, ActionZh, ActionEn, TargetMuscle, Weight, Reps, RPE, Notes, NextTarget, CreatedAt]
  * 4. In "Exercises" sheet, set the header row (Row 1) as follows:
@@ -12,17 +12,27 @@
  *    - ActionEn: 動作英文名稱 (e.g., Romanian Deadlift)
  *    - TargetMuscle: 目標肌群 (e.g., 腿後肌群)
  *    - Type: strength 或 cardio
- * 5. Open Extensions > Apps Script.
- * 6. Paste this code.
- * 7. Set up Token Security:
+ * 5. In "WorkoutPackages" sheet, set the header row (Row 1) as follows:
+ *    [ID, Name, Description, Items, Type, CreatedAt]
+ *    - ID: 套餐唯一識別碼
+ *    - Name: 套餐名稱
+ *    - Description: 套餐描述
+ *    - Items: JSON 格式的訓練項目 (e.g., [{"action":"深蹲","sets":3,"reps":"10"}])
+ *    - Type: preset 或 custom
+ *    - CreatedAt: 建立時間
+ * 6. Open Extensions > Apps Script.
+ * 7. Paste this code.
+ * 8. Set up Token Security:
  *    - Click on "Project Settings" (gear icon on left)
  *    - Scroll to "Script Properties"
  *    - Click "Add script property"
  *    - Name: AUTH_TOKEN
  *    - Value: your-secret-token-123 (same as in your .env file)
- * 8. Deploy > New Deployment > Web App > Execute as: Me > Who has access: Anyone.
+ * 9. Deploy > New Deployment > Web App > Execute as: Me > Who has access: Anyone.
  *    (OR if updating: Deploy > Manage Deployments > Edit (Pencil) > Version: New version > Deploy)
- * 9. Copy the URL and paste it into your .env file as VITE_APP_SCRIPT_URL (if it changed).
+ * 10. Copy the URL and paste it into your .env file as VITE_APP_SCRIPT_URL (if it changed).
+ * 
+ * NOTE: CORS headers are enabled to allow cross-origin requests from your frontend.
  */
 
 // Token verification
@@ -62,6 +72,16 @@ function doPost(e) {
       return saveAIAnalysis(user, body);
     }
     
+    // 新增：儲存菜單套餐
+    if (action === "packages") {
+      return saveWorkoutPackages(body);
+    }
+    
+    // 新增：刪除菜單套餐
+    if (action === "delete-package") {
+      return deleteWorkoutPackage(body);
+    }
+    
     return response({ error: "Unknown action" });
     
   } catch (err) {
@@ -91,12 +111,20 @@ function doGet(e) {
       return getAIAnalyses(user);
     }
     
+    // 新增：讀取菜單套餐
+    if (action === "packages") {
+      return getWorkoutPackages();
+    }
+    
     return response({ error: "Unknown action" });
     
   } catch (err) {
     return response({ error: err.toString() });
   }
 }
+
+// Handle CORS preflight requests
+// function doOptions(e) removed - Google Apps Script does not support OPTIONS requests
 
 function getAIAnalyses(user) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -322,8 +350,162 @@ function addExercise(data) {
 }
 
 function response(data) {
-  return ContentService.createTextOutput(JSON.stringify(data))
+  const output = ContentService.createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
+  
+  // Note: Google Apps Script automatically handles CORS headers.
+  // We cannot manually set headers using setHeader() as it doesn't exist.
+  
+  return output;
+}
+
+// ==================== 菜單套餐功能 (Workout Packages) ====================
+
+/**
+ * 讀取所有菜單套餐
+ */
+function getWorkoutPackages() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName("WorkoutPackages");
+    
+    // 如果工作表不存在，自動建立
+    if (!sheet) {
+      sheet = ss.insertSheet("WorkoutPackages");
+      sheet.getRange(1, 1, 1, 7).setValues([["ID", "Name", "Description", "Items", "Type", "Category", "CreatedAt"]]);
+      return response([]);
+    }
+    
+    const lastRow = sheet.getLastRow();
+    
+    // 只有標題列或空白
+    if (lastRow <= 1) {
+      return response([]);
+    }
+    
+    // 讀取所有資料（排除標題列）
+    const data = sheet.getRange(2, 1, lastRow - 1, 7).getValues();
+    
+    // 過濾並映射為物件
+    const packages = data
+      .filter(row => row[0]) // 過濾掉空行
+      .map(row => {
+        let items = [];
+        try {
+          items = typeof row[3] === 'string' ? JSON.parse(row[3]) : row[3];
+        } catch (e) {
+          console.error("Failed to parse items JSON:", e);
+          items = [];
+        }
+        
+        return {
+          id: row[0],
+          name: row[1] || "",
+          description: row[2] || "",
+          items: items,
+          type: row[4] || "custom",
+          category: row[5] || "",
+          createdAt: row[6] || ""
+        };
+      });
+    
+    return response(packages);
+  } catch (err) {
+    return response({ error: err.toString() });
+  }
+}
+
+/**
+ * 儲存菜單套餐（批次更新）
+ * body.packages: 所有套餐的陣列
+ */
+function saveWorkoutPackages(body) {
+  try {
+    const packages = body.packages || [];
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName("WorkoutPackages");
+    
+    // 如果工作表不存在，建立它
+    if (!sheet) {
+      sheet = ss.insertSheet("WorkoutPackages");
+      sheet.getRange(1, 1, 1, 7).setValues([["ID", "Name", "Description", "Items", "Type", "Category", "CreatedAt"]]);
+    }
+    
+    // 清除現有資料（保留標題列）
+    const lastRow = sheet.getLastRow();
+    if (lastRow > 1) {
+      sheet.getRange(2, 1, lastRow - 1, 7).clear();
+    }
+    
+    // 如果沒有套餐，直接返回
+    if (packages.length === 0) {
+      return response({ message: "ok", count: 0 });
+    }
+    
+    // 準備新資料
+    const rows = packages.map(pkg => {
+      return [
+        pkg.id || Utilities.getUuid(),
+        pkg.name || "",
+        pkg.description || "",
+        JSON.stringify(pkg.items || []),
+        pkg.type || "custom",
+        pkg.category || "",
+        pkg.createdAt || new Date().toISOString()
+      ];
+    });
+    
+    // 寫入所有資料
+    sheet.getRange(2, 1, rows.length, 7).setValues(rows);
+    
+    return response({ message: "ok", count: packages.length });
+  } catch (err) {
+    return response({ error: err.toString() });
+  }
+}
+
+/**
+ * 刪除單個菜單套餐
+ * body.id: 要刪除的套餐 ID
+ */
+function deleteWorkoutPackage(body) {
+  try {
+    const packageId = body.id;
+    
+    if (!packageId) {
+      return response({ error: "Package ID is required" });
+    }
+    
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName("WorkoutPackages");
+    
+    if (!sheet) {
+      return response({ error: "WorkoutPackages sheet not found" });
+    }
+    
+    const lastRow = sheet.getLastRow();
+    
+    if (lastRow <= 1) {
+      return response({ error: "No packages to delete" });
+    }
+    
+    // 讀取所有 ID（第一欄）
+    const data = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    
+    // 找到要刪除的行（+2 因為：startRow=2 且陣列從 0 開始）
+    const rowIndex = data.findIndex(row => row[0] === packageId);
+    
+    if (rowIndex === -1) {
+      return response({ error: "Package not found" });
+    }
+    
+    // 刪除該行
+    sheet.deleteRow(rowIndex + 2);
+    
+    return response({ message: "ok" });
+  } catch (err) {
+    return response({ error: err.toString() });
+  }
 }
 
 function test() {

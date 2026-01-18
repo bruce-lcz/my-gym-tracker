@@ -27,61 +27,6 @@ interface WorkoutMenuProps {
     exercises: Exercise[];
 }
 
-const PRESET_PACKAGES: WorkoutPackage[] = [
-    {
-        id: "preset-upper-power",
-        name: "上半身力量 (Upper Power)",
-        description: "針對胸、背、肩的基礎力量訓練",
-        type: "preset",
-        items: [
-            { action: "Barbell Bench Press", sets: 3, reps: "5-8" },
-            { action: "Barbell Bent Over Row", sets: 3, reps: "6-10" },
-            { action: "Overhead Press", sets: 3, reps: "8-12" },
-            { action: "Pull Up", sets: 3, reps: "Max" },
-            { action: "Dumbbell Bicep Curl", sets: 2, reps: "12-15" }
-        ]
-    },
-    {
-        id: "preset-lower-power",
-        name: "下半身力量 (Lower Power)",
-        description: "深蹲、硬舉為主的腿部訓練",
-        type: "preset",
-        items: [
-            { action: "Barbell Squat", sets: 3, reps: "5-8" },
-            { action: "Romanian Deadlift", sets: 3, reps: "8-12" },
-            { action: "Leg Press", sets: 3, reps: "10-15" },
-            { action: "Walking Lunge", sets: 2, reps: "20" },
-            { action: "Calf Raise", sets: 3, reps: "15-20" }
-        ]
-    },
-    {
-        id: "preset-full-body",
-        name: "全身循環 (Full Body)",
-        description: "一次練完全身主要肌群，適合時間有限者",
-        type: "preset",
-        items: [
-            { action: "Barbell Squat", sets: 3, reps: "8-12" },
-            { action: "Barbell Bench Press", sets: 3, reps: "8-12" },
-            { action: "Barbell Bent Over Row", sets: 3, reps: "8-12" },
-            { action: "Overhead Press", sets: 2, reps: "12" },
-            { action: "Plank", sets: 3, reps: "60s" }
-        ]
-    },
-    {
-        id: "preset-cardio-core",
-        name: "核心有氧 (Core & Cardio)",
-        description: "強化核心並燃燒脂肪",
-        type: "preset",
-        items: [
-            { action: "Treadmill", sets: 1, reps: "20 min", weight: "Spd:9 Inc:2" },
-            { action: "Crunch", sets: 3, reps: "20" },
-            { action: "Leg Raise", sets: 3, reps: "15" },
-            { action: "Plank", sets: 3, reps: "45s" },
-            { action: "Mountain Climber", sets: 3, reps: "30s" }
-        ]
-    }
-];
-
 export default function WorkoutMenu({ dailyPlan, setDailyPlan, onUsePlanItem, planCompletedItems, exercises }: WorkoutMenuProps) {
     const [showImportPlan, setShowImportPlan] = useState(false);
     const [importJson, setImportJson] = useState("");
@@ -366,78 +311,122 @@ export default function WorkoutMenu({ dailyPlan, setDailyPlan, onUsePlanItem, pl
             </div>
 
             <div className="packages-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" }}>
-                {/* Presets */}
-                {[...PRESET_PACKAGES, ...customPackages].map((pkg) => (
-                    <div key={pkg.id} className="card package-card" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
-                            <h4 style={{ margin: 0, fontSize: "1.1rem" }}>{pkg.name}</h4>
-                            {pkg.type === "custom" && (
-                                <button
-                                    onClick={(e) => handleDeletePackage(pkg.id, e)}
-                                    className="btn-icon-danger"
-                                    title="刪除"
-                                >
-                                    <Trash2 size={16} />
-                                </button>
-                            )}
-                        </div>
-                        {pkg.description && (
-                            <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "12px", flex: 1 }}>
-                                {pkg.description}
-                            </p>
-                        )}
-
-                        {/* Preview items (collapsed/summary) */}
-                        <div style={{ background: "var(--bg-main)", padding: "8px", borderRadius: "4px", marginBottom: "12px", fontSize: "0.85rem" }}>
-                            {(expandedPackageId === pkg.id ? pkg.items : pkg.items.slice(0, 3)).map((item, i) => (
-                                <div key={i} style={{ display: "flex", justifyContent: "space-between", marginBottom: "2px" }}>
-                                    <span>{item.action}</span>
-                                    <span style={{ color: "var(--text-secondary)" }}>{item.sets}x{item.reps}</span>
-                                </div>
-                            ))}
-
-                            {pkg.items.length > 3 && expandedPackageId !== pkg.id && (
-                                <div
-                                    onClick={() => setExpandedPackageId(pkg.id)}
-                                    style={{
-                                        textAlign: "center",
-                                        color: "var(--primary-color)",
-                                        fontSize: "0.8rem",
-                                        cursor: "pointer",
-                                        marginTop: "4px",
-                                        fontWeight: "500"
-                                    }}
-                                >
-                                    ... 點擊查看全部 (+{pkg.items.length - 3})
-                                </div>
-                            )}
-
-                            {expandedPackageId === pkg.id && (
-                                <div
-                                    onClick={() => setExpandedPackageId(null)}
-                                    style={{
-                                        textAlign: "center",
-                                        color: "var(--text-secondary)",
-                                        fontSize: "0.8rem",
-                                        cursor: "pointer",
-                                        marginTop: "4px",
-                                        display: "flex", alignItems: "center", justifyContent: "center"
-                                    }}
-                                >
-                                    <ChevronUp size={14} style={{ marginRight: "4px" }} /> 收起
-                                </div>
-                            )}
-                        </div>
-
-                        <button
-                            className="btn-primary"
-                            onClick={() => handleLoadPackage(pkg)}
-                            style={{ width: "100%", justifyContent: "center" }}
+                {/* All packages (including presets from cloud) */}
+                {customPackages.map((pkg) => {
+                    return (
+                        <div
+                            key={pkg.id}
+                            className="card package-card"
+                            style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                height: "100%",
+                                padding: "0",
+                                overflow: "hidden",
+                                border: "1px solid var(--border-input)"
+                            }}
                         >
-                            <Play size={16} style={{ marginRight: "6px" }} /> 載入此菜單
-                        </button>
-                    </div>
-                ))}
+                            {/* Header Section with Unified Theme Color */}
+                            <div style={{
+                                background: "var(--primary-bg-subtle)",
+                                padding: "16px 16px 12px",
+                                borderBottom: "1px solid var(--primary-bg-subtle-hover)"
+                            }}>
+                                {/* Category Tag */}
+                                {pkg.category && (
+                                    <div style={{
+                                        display: "inline-block",
+                                        fontSize: "0.7rem",
+                                        fontWeight: "600",
+                                        color: "var(--primary-main)",
+                                        border: "1px solid var(--primary-main)",
+                                        padding: "2px 8px",
+                                        borderRadius: "12px",
+                                        marginBottom: "6px",
+                                        background: "rgba(255,255,255,0.4)"
+                                    }}>
+                                        {pkg.category}
+                                    </div>
+                                )}
+
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                                    <h4 style={{ margin: 0, fontSize: "1.1rem", color: "var(--primary-main)" }}>{pkg.name}</h4>
+                                    {pkg.type === "custom" && !pkg.category && (
+                                        <button
+                                            onClick={(e) => handleDeletePackage(pkg.id, e)}
+                                            className="btn-icon-danger"
+                                            title="刪除"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    )}
+                                </div>
+                                {pkg.description && (
+                                    <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "8px", lineHeight: "1.4" }}>
+                                        {pkg.description}
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Body Section */}
+                            <div style={{ padding: "16px", flex: 1, display: "flex", flexDirection: "column" }}>
+                                {/* Preview items (collapsed/summary) */}
+                                <div style={{ background: "var(--bg-main)", padding: "12px", borderRadius: "8px", marginBottom: "16px", fontSize: "0.85rem", flex: 1 }}>
+                                    {(expandedPackageId === pkg.id ? pkg.items : pkg.items.slice(0, 3)).map((item, i) => (
+                                        <div key={i} style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                                            <span>{item.action}</span>
+                                            <span style={{ color: "var(--text-secondary)" }}>{item.sets}x{item.reps}</span>
+                                        </div>
+                                    ))}
+
+                                    {pkg.items.length > 3 && expandedPackageId !== pkg.id && (
+                                        <div
+                                            onClick={() => setExpandedPackageId(pkg.id)}
+                                            style={{
+                                                textAlign: "center",
+                                                color: "var(--primary-main)", // Unified theme color
+                                                fontSize: "0.8rem",
+                                                cursor: "pointer",
+                                                marginTop: "8px",
+                                                fontWeight: "500"
+                                            }}
+                                        >
+                                            ... 點擊查看全部 (+{pkg.items.length - 3})
+                                        </div>
+                                    )}
+
+                                    {expandedPackageId === pkg.id && (
+                                        <div
+                                            onClick={() => setExpandedPackageId(null)}
+                                            style={{
+                                                textAlign: "center",
+                                                color: "var(--text-secondary)",
+                                                fontSize: "0.8rem",
+                                                cursor: "pointer",
+                                                marginTop: "8px",
+                                                display: "flex", alignItems: "center", justifyContent: "center"
+                                            }}
+                                        >
+                                            <ChevronUp size={14} style={{ marginRight: "4px" }} /> 收起
+                                        </div>
+                                    )}
+                                </div>
+
+                                <button
+                                    className="btn-primary"
+                                    onClick={() => handleLoadPackage(pkg)}
+                                    style={{
+                                        width: "100%",
+                                        justifyContent: "center",
+                                        // Standard btn-primary style is fine, no inline override needed
+                                    }}
+                                >
+                                    <Play size={16} style={{ marginRight: "6px" }} /> 載入此菜單
+                                </button>
+                            </div>
+                        </div>
+                    );
+                })}
 
                 {/* Create New Card */}
                 <div
