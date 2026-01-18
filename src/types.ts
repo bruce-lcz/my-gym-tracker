@@ -60,3 +60,19 @@ export type AIAnalysis = {
   date: string;
   timestamp?: string;
 };
+
+export type PlanItem = {
+  action: string; // matches Exercise.zh or .en
+  sets: number;
+  reps: string;
+  weight?: string;
+};
+
+export type WorkoutPackage = {
+  id: string;
+  name: string;
+  description?: string;
+  items: PlanItem[];
+  type: "preset" | "custom";
+  category?: string;
+};

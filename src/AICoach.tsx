@@ -102,64 +102,65 @@ export default function AICoach({ user, logs }: AICoachProps) {
         setSaveStatus("idle");
 
         try {
-            const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+            const apiKey = import.meta.env.VITE_GROQ_API_KEY;
 
             if (!apiKey) {
-                throw new Error("未設定 OPENAI_API_KEY，請在 .env.local 中設定 VITE_OPENAI_API_KEY");
+                throw new Error("未設定 GROQ_API_KEY，請在 .env.local 中設定 VITE_GROQ_API_KEY");
             }
 
             const openai = new OpenAI({
                 apiKey: apiKey,
+                baseURL: "https://api.groq.com/openai/v1",
                 dangerouslyAllowBrowser: true,
             });
 
             const dataSummary = `
-使用者: ${user}
-總訓練次數: ${trainingStats.totalWorkouts}
-訓練天數: ${trainingStats.uniqueDays}
-平均每天訓練次數: ${(trainingStats.totalWorkouts / trainingStats.uniqueDays).toFixed(1)}
+            使用者: ${user}
+            總訓練次數: ${trainingStats.totalWorkouts}
+            訓練天數: ${trainingStats.uniqueDays}
+            平均每天訓練次數: ${(trainingStats.totalWorkouts / trainingStats.uniqueDays).toFixed(1)}
 
-肌群分佈:
-${Object.entries(trainingStats.muscleDistribution)
+            肌群分佈:
+            ${Object.entries(trainingStats.muscleDistribution)
                     .map(([muscle, count]) => `- ${muscle}: ${count} 次 (${((count / trainingStats.totalWorkouts) * 100).toFixed(1)}%)`)
                     .join('\n')}
 
-最常訓練的動作: ${trainingStats.mostFrequentExercise}
+            最常訓練的動作: ${trainingStats.mostFrequentExercise}
 
-最近 10 次訓練記錄:
-${trainingStats.recentWorkouts
+            最近 10 次訓練記錄:
+            ${trainingStats.recentWorkouts
                     .map((w, i) => `${i + 1}. ${w.date} - ${w.exercise} (${w.muscle}) - ${w.sets}組, RPE: ${w.rpe}`)
                     .join('\n')}
-      `.trim();
+                `.trim();
 
             const response = await openai.chat.completions.create({
-                model: "gpt-5-nano",
+                model: "gpt-oss-120b",
                 messages: [
                     {
                         role: "system",
                         content: `你是一位嚴格且專業的健身教練。請直接針對數據進行分析，不要使用客套話。
 
-**你的回答必須包含豐富的 Markdown 視覺元素，讓重點一目瞭然：**
+                        **你的回答必須包含豐富的 Markdown 視覺元素，讓重點一目瞭然：**
 
-1. **粗體強調 (關鍵)**：所有「數字」、「肌群名稱」、「訓練動作」與「RPE 值」**必須**使用粗體。
-   - 範例：本次訓練總量為 **12,500 kg**，主要集中在 **胸大肌**。
-2. **列表與層級**：使用清晰的點列式清單。
-3. **引用重點**：對於最重要的建議或警告，請使用引用區塊（>）。
-4. **Emoji 使用**：在每個標題和關鍵建議前加入適當的 Emoji。
+                        1. **粗體強調 (關鍵)**：所有「數字」、「肌群名稱」、「訓練動作」與「RPE 值」**必須**使用粗體。
+                        - 範例：本次訓練總量為 **12,500 kg**，主要集中在 **胸大肌**。
+                        2. **列表與層級**：使用清晰的點列式清單。
+                        3. **引用重點**：對於最重要的建議或警告，請使用引用區塊（>）。
+                        4. **Emoji 使用**：在每個標題和關鍵建議前加入適當的 Emoji。
 
-**分析結構（請使用 H3 標題 \`###\`）：**
-### 📊 訓練頻率與一致性
-### ⚖️ 肌群平衡分析
-### 💥 訓練強度與 RPE
-### 💡 具體改進建議 (3-5 點)
-### 🚀 短期重點 (下週)：立即執行的具體調整
-### 🎯 中期目標 (2-4 週)：週期性調整方向
+                        **分析結構（請使用 H3 標題 \`###\`）：**
+                        ### 📊 訓練頻率與一致性
+                        ### ⚖️ 肌群平衡分析
+                        ### 💥 訓練強度與 RPE
+                        ### 💡 具體改進建議 (3-5 點)
+                        ### 🚀 短期重點 (下週)：立即執行的具體調整
+                        ### 🎯 中期目標 (2-4 週)：週期性調整方向
 
-**嚴格禁止**：
-- **絕對禁止**在結尾處添加客套話或後續服務提議（如：「如果需要...」、「我可以幫你...」、「祝你訓練順利」）。
-- **講完中期目標後請直接結束回答**，不要有任何結尾語。
-- 禁止詢問用戶意願。
-- 使用 **繁體中文** 回答。`,
+                        **嚴格禁止**：
+                        - **絕對禁止**在結尾處添加客套話或後續服務提議（如：「如果需要...」、「我可以幫你...」、「祝你訓練順利」）。
+                        - **講完中期目標後請直接結束回答**，不要有任何結尾語。
+                        - 禁止詢問用戶意願。
+                        - 使用 **繁體中文** 回答。`,
                     },
                     {
                         role: "user",
@@ -167,9 +168,10 @@ ${trainingStats.recentWorkouts
                     },
                 ],
                 max_completion_tokens: 16000,
+                reasoning_effort: "high",
             });
 
-            console.log("OpenAI Response:", response);
+            console.log("Groq AI Response:", response);
             const choice = response.choices?.[0];
             const aiResponse = choice?.message?.content;
 

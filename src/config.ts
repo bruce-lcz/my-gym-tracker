@@ -6,7 +6,8 @@ export const APP_CONFIG = {
     ? scriptUrl.replace("https://script.google.com", "/api")
     : scriptUrl,
   token: import.meta.env.VITE_APP_TOKEN ?? "",
-  accessPassword: import.meta.env.VITE_ACCESS_PASSWORD ?? ""
+  brucePassword: import.meta.env.VITE_BRUCE_PASSWORD ?? "",
+  lindaPassword: import.meta.env.VITE_LINDA_PASSWORD ?? ""
 };
 
 export const defaultHeaders: HeadersInit = {
