@@ -30,7 +30,9 @@ jobs:
         env:
           VITE_APP_SCRIPT_URL: ${{ secrets.VITE_APP_SCRIPT_URL }}
           VITE_APP_TOKEN: ${{ secrets.VITE_APP_TOKEN }}
-          VITE_ACCESS_PASSWORD: ${{ secrets.VITE_ACCESS_PASSWORD }}
+          VITE_BRUCE_PASSWORD: ${{ secrets.VITE_BRUCE_PASSWORD }}
+          VITE_LINDA_PASSWORD: ${{ secrets.VITE_LINDA_PASSWORD }}
+          VITE_GROQ_API_KEY: ${{ secrets.VITE_GROQ_API_KEY }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
