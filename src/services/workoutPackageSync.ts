@@ -40,6 +40,7 @@ export async function fetchWorkoutPackages(): Promise<WorkoutPackage[]> {
         // 成功從雲端獲取，也同步到 localStorage
         if (Array.isArray(data)) {
             localStorage.setItem("customPackages", JSON.stringify(data));
+            localStorage.setItem("customPackagesLastSync", new Date().toISOString());
             return data;
         }
 
@@ -85,6 +86,7 @@ export async function saveWorkoutPackages(packages: WorkoutPackage[]): Promise<b
         }
 
         console.log(`Successfully synced ${data.count || packages.length} packages to Google Sheets`);
+        localStorage.setItem("customPackagesLastSync", new Date().toISOString());
         return true;
     } catch (error) {
         console.error("Failed to save packages to Google Sheets:", error);

@@ -385,33 +385,105 @@ function AppContent() {
   // handleImportPlan removed - handled in WorkoutMenu
 
   const handleUsePlanItem = (item: PlanItem) => {
+    // Clean up input action name (trim spaces)
+    const rawAction = item.action.trim();
+
+    // Helper to normalize strings for comparison (remove spaces, lowercase)
+    const normalize = (s: string) => s.replace(/\s+/g, "").toLowerCase();
+    const target = normalize(rawAction);
+
     // 1. Try to find the exercise in our list
-    const foundExercise = exercises.find(ex => ex.zh === item.action || ex.en === item.action);
+    // Priority: 
+    // 1. Exact or Normalized match on key fields (zh, en)
+    // 2. Normalized match on "zh/en" combination (common user mistake coping from UI)
+    const foundExercise = exercises.find(ex => {
+      const z = normalize(ex.zh || "");
+      const e = normalize(ex.en || "");
 
-    // If not found, we might want to alert or just proceed with matched name
-    const exerciseName = foundExercise ? foundExercise.zh : item.action;
+      // Check individual fields
+      if (z === target || e === target) return true;
+      if (ex.zh === rawAction || ex.en === rawAction) return true;
 
-    // Trigger basic selection logic (sets up muscle target, etc.)
-    handleExerciseSelect(exerciseName);
+      // Check composite format "ZH/EN" or "ZH (EN)" etc
+      // Does the user input contain the ZH name?
+      if (ex.zh && rawAction.includes(ex.zh)) return true;
+      // Does the user input contain the EN name (if EN is long enough to be unique > 3 chars)?
+      if (ex.en && ex.en.length > 3 && rawAction.toLowerCase().includes(ex.en.toLowerCase())) return true;
 
-    // 2. Override sets with planned values
-    // Create 'sets' array based on plan
+      return false;
+    });
+
+    // 2. Prepare Form Data
+    let targetMuscle = "";
+    let actionEn = "";
+    let lastDate = "";
+
+    // IMPORTANT: precise match for Select value
+    // If we found a gym-tracker exercise object, we MUST use its existing `zh` value exactly.
+    // Otherwise the <select> won't pick it up.
+    let exerciseName = foundExercise ? foundExercise.zh : rawAction;
+
+    // Alert if not found
+    if (!foundExercise) {
+      // Double check existence in case of weird edge cases
+      const existsInDropdown = exercises.some(ex => ex.zh === exerciseName);
+      if (!existsInDropdown) {
+        alert(
+          `無法載入動作：${rawAction}\n\n` +
+          `系統找不到對應的動作資料，請確認該動作是否存在於您的動作列表中。\n` +
+          `提示：若是自訂動作，請確保名稱完全一致。`
+        );
+      }
+    }
+
+    // 3. Update Exercise Context (Type, History)
+    if (foundExercise) {
+      const today = getLocalDate();
+      const rawType = foundExercise.type?.toLowerCase() || "strength";
+      const type: "strength" | "cardio" = rawType === "cardio" ? "cardio" : "strength";
+
+      setCurrentExerciseType(type);
+
+      const todayLog = logs.find(log =>
+        log.actionZh === foundExercise.zh && log.currentDate === today
+      );
+      setTodayHistory(todayLog || null);
+
+      const lastLog = logs
+        .filter(log => log.actionZh === foundExercise.zh && log.currentDate !== today)
+        .sort((a, b) => (b.currentDate || "").localeCompare(a.currentDate || ""))[0];
+
+      targetMuscle = foundExercise.targetMuscle || "";
+      actionEn = foundExercise.en || "";
+      lastDate = lastLog?.currentDate || "";
+    } else {
+      // Fallback
+      setCurrentExerciseType("strength");
+      setTodayHistory(null);
+    }
+
+    // 4. Create 'sets' array based on plan
     const newSets = Array.from({ length: item.sets }).map(() => ({
-      weight: item.weight || "", // Pre-fill weight if in plan, else empty
+      weight: item.weight || "",
       reps: item.reps,
       incline: "", speed: "", time: ""
     }));
 
+    // 5. Update Form State in one go
     setForm(prev => ({
       ...prev,
       actionZh: exerciseName,
-      // If found, update other fields, else keep what handleExerciseSelect might have missed (if it failed)
-      // Actually handleExerciseSelect handles metadata if found. 
-      // If not found, we manually set actionZh at least.
+      actionEn: actionEn,
+      targetMuscle: targetMuscle,
+      lastDate: lastDate,
       sets: newSets
     }));
 
-    // Scroll to top or form (optional, naturally likely inplace)
+    // 6. Switch to training tab
+    setActiveTab("training");
+
+    // Debug info
+    console.log("Loaded Plan Item:", { rawAction, match: foundExercise?.zh, sets: newSets });
   };
 
   // ----------------------------------------------------------------
