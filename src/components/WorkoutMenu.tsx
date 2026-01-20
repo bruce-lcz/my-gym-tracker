@@ -14,7 +14,9 @@ import {
     ChevronDown,
     ChevronUp,
     Cloud,
-    CloudOff
+    CloudOff,
+    RefreshCw,
+    Upload
 } from "lucide-react";
 import { initWorkoutPackages, saveWorkoutPackages, deleteWorkoutPackage } from "../services/workoutPackageSync";
 
@@ -37,6 +39,7 @@ export default function WorkoutMenu({ dailyPlan, setDailyPlan, onUsePlanItem, pl
     const [customPackages, setCustomPackages] = useState<WorkoutPackage[]>([]);
     const [isSyncing, setIsSyncing] = useState(false);
     const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
+    const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
     const [showCreatePackage, setShowCreatePackage] = useState(false);
 
     // New Package Form State
@@ -46,46 +49,38 @@ export default function WorkoutMenu({ dailyPlan, setDailyPlan, onUsePlanItem, pl
     const [showAddExerciseToPackage, setShowAddExerciseToPackage] = useState(false); // Dropdown/Search toggle
     const [expandedPackageId, setExpandedPackageId] = useState<string | null>(null);
 
-    // 初始化時從雲端或本地載入菜單套餐
+    // 初始化時從 localStorage 載入菜單套餐（不從雲端重新載入）
     useEffect(() => {
-        const loadPackages = async () => {
-            setIsSyncing(true);
-            setSyncStatus('syncing');
+        const loadPackages = () => {
             try {
-                const packages = await initWorkoutPackages();
-                setCustomPackages(packages);
-                setSyncStatus('success');
+                const saved = localStorage.getItem("customPackages");
+                const savedTime = localStorage.getItem("customPackagesLastSync");
+
+                if (saved) {
+                    setCustomPackages(JSON.parse(saved));
+                    setSyncStatus('success');
+                }
+
+                if (savedTime) {
+                    setLastSyncTime(new Date(savedTime));
+                }
             } catch (error) {
-                console.error("Failed to load packages:", error);
+                console.error("Failed to load packages from localStorage:", error);
                 setSyncStatus('error');
-            } finally {
-                setIsSyncing(false);
             }
         };
         loadPackages();
     }, []);
 
-    // 當 customPackages 變更時，同步到雲端
+    // 當 customPackages 變更時，只保存到 localStorage（不自動同步到雲端）
     useEffect(() => {
         if (customPackages.length === 0 && syncStatus === 'idle') {
-            // 初始狀態，不需要同步
+            // 初始狀態，不需要保存
             return;
         }
 
-        const syncPackages = async () => {
-            setSyncStatus('syncing');
-            try {
-                const success = await saveWorkoutPackages(customPackages);
-                setSyncStatus(success ? 'success' : 'error');
-            } catch (error) {
-                console.error("Failed to sync packages:", error);
-                setSyncStatus('error');
-            }
-        };
-
-        // 使用 debounce 避免過於頻繁的同步
-        const timer = setTimeout(syncPackages, 1000);
-        return () => clearTimeout(timer);
+        // 只保存到 localStorage，不同步到雲端
+        localStorage.setItem("customPackages", JSON.stringify(customPackages));
     }, [customPackages]);
 
     // Main Daily Plan Logic
@@ -159,21 +154,79 @@ export default function WorkoutMenu({ dailyPlan, setDailyPlan, onUsePlanItem, pl
         setTimeout(() => setMessage(null), 3000);
     };
 
-    const handleDeletePackage = async (id: string, e: React.MouseEvent) => {
+    const handleDeletePackage = (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
         if (window.confirm("確定要刪除此自訂套餐嗎？")) {
-            setSyncStatus('syncing');
-            try {
-                await deleteWorkoutPackage(id, customPackages);
-                setCustomPackages(prev => prev.filter(p => p.id !== id));
-                setSyncStatus('success');
-            } catch (error) {
-                console.error("Failed to delete package:", error);
-                setSyncStatus('error');
-                setError("刪除套餐時發生錯誤");
-                setTimeout(() => setError(null), 3000);
-            }
+            // 只在本地刪除，不同步到雲端
+            setCustomPackages(prev => prev.filter(p => p.id !== id));
+            setMessage("已刪除套餐（本地）");
+            setTimeout(() => setMessage(null), 3000);
         }
+    };
+
+    // 從雲端下載最新數據（只 pull，不 push）
+    const handleRefreshFromCloud = async () => {
+        setIsSyncing(true);
+        setSyncStatus('syncing');
+        try {
+            // 從雲端下載最新數據
+            const packages = await initWorkoutPackages();
+            setCustomPackages(packages);
+
+            const now = new Date();
+            setLastSyncTime(now);
+            localStorage.setItem("customPackagesLastSync", now.toISOString());
+            setSyncStatus('success');
+            setMessage(`已從雲端載入 ${packages.length} 個套餐！`);
+            setTimeout(() => setMessage(null), 3000);
+        } catch (error) {
+            console.error("Failed to refresh packages:", error);
+            setSyncStatus('error');
+            setError("從雲端載入失敗，請稍後再試");
+            setTimeout(() => setError(null), 3000);
+        } finally {
+            setIsSyncing(false);
+        }
+    };
+
+    // 手動上傳本地數據到雲端
+    const handleUploadToCloud = async () => {
+        setIsSyncing(true);
+        setSyncStatus('syncing');
+        try {
+            // 上傳本地數據到雲端
+            await saveWorkoutPackages(customPackages);
+
+            const now = new Date();
+            setLastSyncTime(now);
+            localStorage.setItem("customPackagesLastSync", now.toISOString());
+            setSyncStatus('success');
+            setMessage(`已上傳 ${customPackages.length} 個套餐到雲端！`);
+            setTimeout(() => setMessage(null), 3000);
+        } catch (error) {
+            console.error("Failed to upload packages:", error);
+            setSyncStatus('error');
+            setError("上傳到雲端失敗，請稍後再試");
+            setTimeout(() => setError(null), 3000);
+        } finally {
+            setIsSyncing(false);
+        }
+    };
+
+    // 格式化同步時間顯示
+    const formatSyncTime = (date: Date): string => {
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffMins < 1) return "剛剛";
+        if (diffMins < 60) return `${diffMins} 分鐘前`;
+        if (diffHours < 24) return `${diffHours} 小時前`;
+        if (diffDays < 7) return `${diffDays} 天前`;
+
+        return date.toLocaleDateString('zh-TW', { month: 'short', day: 'numeric' });
     };
 
     const addItemToNewPackage = (exerciseName: string) => {
@@ -283,30 +336,73 @@ export default function WorkoutMenu({ dailyPlan, setDailyPlan, onUsePlanItem, pl
             </section>
 
             {/* 2. Package Selection Area */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "24px 0 16px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "24px 0 16px", flexWrap: "wrap", gap: "12px" }}>
                 <h3 style={{ margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
                     <Package size={20} /> 訓練套餐 (Packages)
                 </h3>
-                {/* 同步狀態指示器 */}
-                <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                    {syncStatus === 'syncing' && (
-                        <>
-                            <Cloud size={16} className="spin" style={{ animation: "spin 1s linear infinite" }} />
-                            <span>同步中...</span>
-                        </>
-                    )}
-                    {syncStatus === 'success' && (
-                        <>
-                            <Cloud size={16} color="var(--success-color)" />
-                            <span style={{ color: "var(--success-color)" }}>已同步</span>
-                        </>
-                    )}
-                    {syncStatus === 'error' && (
-                        <>
-                            <CloudOff size={16} color="var(--error-color)" />
-                            <span style={{ color: "var(--error-color)" }}>同步失敗</span>
-                        </>
-                    )}
+                {/* 同步狀態指示器與刷新按鈕 */}
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                        {syncStatus === 'syncing' && (
+                            <>
+                                <Cloud size={16} className="spin" style={{ animation: "spin 1s linear infinite" }} />
+                                <span>同步中...</span>
+                            </>
+                        )}
+                        {syncStatus === 'success' && (
+                            <>
+                                <Cloud size={16} color="var(--success-color)" />
+                                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+                                    <span style={{ color: "var(--success-color)" }}>已同步</span>
+                                    {lastSyncTime && (
+                                        <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: "2px" }}>
+                                            {formatSyncTime(lastSyncTime)}
+                                        </span>
+                                    )}
+                                </div>
+                            </>
+                        )}
+                        {syncStatus === 'error' && (
+                            <>
+                                <CloudOff size={16} color="var(--error-color)" />
+                                <span style={{ color: "var(--error-color)" }}>同步失敗</span>
+                            </>
+                        )}
+                    </div>
+                    <button
+                        className="btn-secondary"
+                        onClick={handleRefreshFromCloud}
+                        disabled={isSyncing}
+                        style={{
+                            padding: "6px 12px",
+                            fontSize: "0.85rem",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            opacity: isSyncing ? 0.6 : 1
+                        }}
+                        title="從雲端重新載入"
+                    >
+                        <RefreshCw size={14} className={isSyncing ? "spin" : ""} style={isSyncing ? { animation: "spin 1s linear infinite" } : {}} />
+                        刷新
+                    </button>
+                    <button
+                        className="btn-secondary"
+                        onClick={handleUploadToCloud}
+                        disabled={isSyncing || customPackages.length === 0}
+                        style={{
+                            padding: "6px 12px",
+                            fontSize: "0.85rem",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            opacity: (isSyncing || customPackages.length === 0) ? 0.6 : 1
+                        }}
+                        title="上傳本地數據到雲端"
+                    >
+                        <Upload size={14} />
+                        上傳
+                    </button>
                 </div>
             </div>
 
