@@ -3,6 +3,7 @@ export interface Exercise {
   en: string;
   targetMuscle: string;
   type?: "strength" | "cardio";
+  part?: string; // e.g. "胸部", "下肢"
 }
 
 /**
@@ -40,12 +41,57 @@ export async function fetchExercisesFromSheet(): Promise<Exercise[]> {
     const res = await fetchExercises();
 
     if (res.ok && res.data && res.data.length > 0) {
+      const { PREDEFINED_EXERCISES_LIST, EXERCISE_CATEGORIES } = await import("./data/exerciseList");
+
       const customExercises = getCustomExercises();
       console.log(`✅ 已從 Google Sheets 載入 ${res.data.length} 個動作`);
+
+      // Merge backend data with local category knowledge
+      const enrichedBackendData = res.data.map(ex => {
+        // 1. Detection of Column Shift (User added "Part" column at the beginning)
+        // Check if current 'zh' is actually a known category. 
+        // Real Data Shift: row[0]=Part -> mapped to 'zh'
+        const potentialPart = ex.zh ? ex.zh.trim() : "";
+        const knownCategories = Object.keys(EXERCISE_CATEGORIES);
+        let correctedEx = { ...ex };
+
+        if (knownCategories.includes(potentialPart)) {
+          // Shift detected!
+          // row[0] (zh) is Part
+          // row[1] (en) is ZH
+          // row[2] (targetMuscle) is EN
+          // row[3] (type) is Muscle
+          correctedEx = {
+            zh: ex.en,
+            en: ex.targetMuscle,
+            targetMuscle: (ex as any).type || "", // was mapped to row[3]
+            part: potentialPart,
+            type: "strength"  // Default, will be patched by match below
+          };
+        }
+
+        // If backend already has part (rare), use it.
+        if ((ex as any).part && !correctedEx.part) {
+          correctedEx.part = (ex as any).part;
+        }
+
+        // 2. Patch missing data / Enrich from static list
+        const match = PREDEFINED_EXERCISES_LIST.find(p => p.zh === correctedEx.zh);
+        if (match) {
+          return {
+            ...correctedEx,
+            part: match.part, // Ensure part is set to standard one
+            type: match.type || correctedEx.type, // Prefer static type if backend missing
+            targetMuscle: match.targetMuscle || correctedEx.targetMuscle
+          };
+        }
+        return correctedEx;
+      });
+
       if (customExercises.length > 0) {
         console.log(`✅ 已合併 ${customExercises.length} 個本地自訂動作`);
       }
-      return [...res.data, ...customExercises];
+      return [...enrichedBackendData, ...customExercises];
     }
 
     // Google Sheets 無資料時，使用預設 + 自訂動作

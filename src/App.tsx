@@ -37,6 +37,8 @@ import {
   Database,
   ClipboardList
 } from "lucide-react";
+import ExerciseSelector from "./components/ExerciseSelector";
+import WeeklySummary from "./components/WeeklySummary";
 
 // 取得本地日期（台北時間）格式 YYYY-MM-DD
 const getLocalDate = () => {
@@ -652,19 +654,12 @@ function AppContent() {
               <div className="form-row">
                 <label className="exercise-group">
                   動作名稱
-                  <div className="select-wrapper">
-                    <select
+                  <div className="select-wrapper-custom" style={{ marginTop: "4px" }}>
+                    <ExerciseSelector
+                      exercises={exercises}
                       value={form.actionZh}
-                      onChange={e => handleExerciseSelect(e.target.value)}
-                      required
-                    >
-                      <option value="">-- 選擇動作 --</option>
-                      {exercises.map((ex, idx) => (
-                        <option key={idx} value={ex.zh}>
-                          {ex.zh} {ex.en ? `/ ${ex.en}` : ""}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={handleExerciseSelect}
+                    />
                   </div>
                 </label>
                 <label className="muscle-group">
@@ -938,6 +933,11 @@ function AppContent() {
         {activeTab === "history" && (
           <section className="card">
             <h2><History size={22} className="section-icon" /> 最近紀錄</h2>
+            <WeeklySummary
+              user={user}
+              logs={logs}
+              primaryColor={user === "Linda" ? "#8D6E63" : "#2E8B57"}
+            />
             {loading ? (
               <p>讀取中...</p>
             ) : logs.length === 0 ? (

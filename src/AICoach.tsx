@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect } from "react";
 import { TrainingLog, User, AIAnalysis } from "./types";
-import { Sparkles, TrendingUp, Calendar, Dumbbell, Activity, AlertCircle, Loader2, History, Clock, CheckCircle2 } from "lucide-react";
+import { Sparkles, TrendingUp, Calendar, Dumbbell, Activity, AlertCircle, Loader2, History, Clock, CheckCircle2, Clipboard, FileText, Layout } from "lucide-react";
 import OpenAI from "openai";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { saveAIAnalysis, fetchAIAnalysis } from "./api";
+import { parseSummaryMeta } from "./services/summaryService";
 
 interface AICoachProps {
     user: User;
@@ -38,9 +39,12 @@ export default function AICoach({ user, logs }: AICoachProps) {
             const res = await fetchAIAnalysis(user);
             if (res.ok && res.data) {
                 setHistory(res.data);
-                // If no current analysis, show the latest from history
-                if (!analysis && res.data.length > 0) {
-                    setAnalysis(res.data[0].content);
+
+                // If no current analysis, show the latest advice from history
+                // We filter here only for the 'initial view' selection, but keep full history in state
+                const adviceOnly = res.data.filter(h => !parseSummaryMeta(h.content));
+                if (!analysis && adviceOnly.length > 0) {
+                    setAnalysis(adviceOnly[0].content);
                 }
             }
         } catch (err) {
@@ -103,7 +107,6 @@ export default function AICoach({ user, logs }: AICoachProps) {
 
         try {
             const apiKey = import.meta.env.VITE_GROQ_API_KEY;
-
             if (!apiKey) {
                 throw new Error("未設定 GROQ_API_KEY，請在 .env.local 中設定 VITE_GROQ_API_KEY");
             }
@@ -134,7 +137,7 @@ export default function AICoach({ user, logs }: AICoachProps) {
                 `.trim();
 
             const response = await openai.chat.completions.create({
-                model: "gpt-oss-120b",
+                model: "openai/gpt-oss-120b",
                 messages: [
                     {
                         role: "system",
@@ -192,13 +195,14 @@ export default function AICoach({ user, logs }: AICoachProps) {
         }
     };
 
+
     const saveToSheets = async (content: string) => {
         setSaveStatus("saving");
         try {
             const res = await saveAIAnalysis(user, content);
             if (res.ok) {
                 setSaveStatus("saved");
-                loadHistory(); // Reload history to show the new entry
+                loadHistory(); // Reload history to show the new entry/summary
             } else {
                 setSaveStatus("error");
             }
@@ -220,7 +224,7 @@ export default function AICoach({ user, logs }: AICoachProps) {
         <div className="ai-coach-container" style={{ padding: "0 10px", paddingBottom: "80px" }}>
             {/* Header Section */}
             <section className="card">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
                     <div style={{ textAlign: "left" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
                             <Sparkles size={32} color={primaryColor} />
@@ -237,7 +241,7 @@ export default function AICoach({ user, logs }: AICoachProps) {
                         style={{ padding: "10px 16px" }}
                     >
                         <History size={18} />
-                        歷史記錄 {history.length > 0 && `(${history.length})`}
+                        歷史記錄 {history.filter(h => !parseSummaryMeta(h.content)).length > 0 && `(${history.filter(h => !parseSummaryMeta(h.content)).length})`}
                     </button>
                 </div>
 
@@ -254,11 +258,11 @@ export default function AICoach({ user, logs }: AICoachProps) {
                         </h4>
                         {loadingHistory ? (
                             <div style={{ textAlign: "center", padding: "20px" }}><Loader2 className="spin-animation" /></div>
-                        ) : history.length === 0 ? (
+                        ) : history.filter(h => !parseSummaryMeta(h.content)).length === 0 ? (
                             <p style={{ textAlign: "center", color: "var(--text-secondary)", fontSize: "0.9rem" }}>尚無歷史記錄</p>
                         ) : (
                             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                                {history.map((h) => (
+                                {history.filter(h => !parseSummaryMeta(h.content)).map((h) => (
                                     <div
                                         key={h.id}
                                         onClick={() => handleSelectPastAnalysis(h.content)}
@@ -283,6 +287,7 @@ export default function AICoach({ user, logs }: AICoachProps) {
                         )}
                     </div>
                 )}
+
             </section>
 
             {/* Training Stats Overview */}
@@ -511,3 +516,4 @@ export default function AICoach({ user, logs }: AICoachProps) {
         </div>
     );
 }
+
