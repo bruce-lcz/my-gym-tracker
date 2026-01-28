@@ -96,7 +96,7 @@ export const fetchLogs = async (user: User) => {
     }
 
     if (row.weight || row.reps) {
-      groupedHelper[key].sets.push({
+      groupedHelper[key].sets.unshift({
         weight: String(row.weight || ''),
         reps: String(row.reps || '')
       });
@@ -119,6 +119,7 @@ export const createLog = (user: User, payload: TrainingLog) =>
 
 export const fetchExercises = async () => {
   const res = await request<Array<{
+    part?: string;
     zh: string;
     en: string;
     targetMuscle: string;
@@ -136,6 +137,7 @@ export const fetchExercises = async () => {
 };
 
 export const createExercise = (payload: {
+  part?: string;
   zh: string;
   en: string;
   targetMuscle: string;
@@ -145,6 +147,27 @@ export const createExercise = (payload: {
     method: "POST",
     body: payload,
     params: { action: "exercises" }
+  });
+
+export const updateExercise = (payload: {
+  originalZh?: string;
+  part?: string;
+  zh: string;
+  en: string;
+  targetMuscle: string;
+  type?: "strength" | "cardio";
+}) =>
+  request<{ message: string }>({
+    method: "POST",
+    body: payload,
+    params: { action: "update_exercise" }
+  });
+
+export const deleteExercise = (payload: { zh: string }) =>
+  request<{ message: string }>({
+    method: "POST",
+    body: payload,
+    params: { action: "delete_exercise" }
   });
 
 
