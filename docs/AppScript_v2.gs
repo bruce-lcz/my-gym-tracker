@@ -81,6 +81,16 @@ function doPost(e) {
     if (action === "delete-package") {
       return deleteWorkoutPackage(body);
     }
+
+    // 新增：更新動作
+    if (action === "update_exercise") {
+      return updateExercise(body);
+    }
+
+    // 新增：刪除動作
+    if (action === "delete_exercise") {
+      return deleteExercise(body);
+    }
     
     return response({ error: "Unknown action" });
     
@@ -286,17 +296,18 @@ function getExercises() {
     }
     
     // Get all data excluding header
-    // Headers: [ActionZh, ActionEn, TargetMuscle, Type]
-    const data = sheet.getRange(2, 1, lastRow - 1, 4).getValues();
+    // Headers: [Part/部位, ActionZh/動作名稱(中), ActionEn, TargetMuscle/目標肌群, Type/類型]
+    const data = sheet.getRange(2, 1, lastRow - 1, 5).getValues();
     
     // Map to object
     const exercises = data
-      .filter(row => row[0]) // Filter out empty rows
+      .filter(row => row[1]) // Filter out empty rows (check ActionZh)
       .map(row => ({
-        zh: row[0],
-        en: row[1] || "",
-        targetMuscle: row[2] || "",
-        type: row[3] || "strength"
+        part: row[0] || "",
+        zh: row[1],
+        en: row[2] || "",
+        targetMuscle: row[3] || "",
+        type: row[4] || "strength"
       }));
     
     return response(exercises);
@@ -314,7 +325,7 @@ function addExercise(data) {
     if (!sheet) {
       sheet = ss.insertSheet("Exercises");
       // Add headers
-      sheet.getRange(1, 1, 1, 4).setValues([["ActionZh", "ActionEn", "TargetMuscle", "Type"]]);
+      sheet.getRange(1, 1, 1, 5).setValues([["Part", "ActionZh", "ActionEn", "TargetMuscle", "Type"]]);
     }
     
     // Validate required field
@@ -334,6 +345,7 @@ function addExercise(data) {
     
     // Prepare new row
     const newRow = [
+      data.part || "",
       data.zh.trim(),
       data.en ? data.en.trim() : "",
       data.targetMuscle ? data.targetMuscle.trim() : "",
@@ -344,6 +356,83 @@ function addExercise(data) {
     sheet.appendRow(newRow);
     
     return response({ message: "動作新增成功" });
+  } catch (err) {
+    return response({ error: err.toString() });
+  }
+}
+
+function updateExercise(data) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName("Exercises");
+    
+    if (!sheet) {
+      return response({ error: "Exercises sheet not found" });
+    }
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow <= 1) {
+      return response({ error: "No exercises found" });
+    }
+
+    // data.originalZh is the key to find the row
+    const targetName = data.originalZh || data.zh;
+    
+    // Get all Chinese names (Col 2, since Col 1 is Part)
+    const names = sheet.getRange(2, 2, lastRow - 1, 1).getValues().flat();
+    
+    // Find index (visual row = index + 2)
+    const index = names.findIndex(name => name == targetName);
+    
+    if (index === -1) {
+      return response({ error: "Exercise not found: " + targetName });
+    }
+    
+    const rowIndex = index + 2;
+    
+    if (data.part) sheet.getRange(rowIndex, 1).setValue(data.part);
+    if (data.zh) sheet.getRange(rowIndex, 2).setValue(data.zh);
+    if (data.en) sheet.getRange(rowIndex, 3).setValue(data.en);
+    if (data.targetMuscle) sheet.getRange(rowIndex, 4).setValue(data.targetMuscle);
+    if (data.type) sheet.getRange(rowIndex, 5).setValue(data.type);
+    
+    return response({ message: "Exercise updated" });
+    
+  } catch (err) {
+    return response({ error: err.toString() });
+  }
+}
+
+function deleteExercise(data) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName("Exercises");
+    
+    if (!sheet) {
+      return response({ error: "Exercises sheet not found" });
+    }
+    
+    const targetName = data.zh;
+    const lastRow = sheet.getLastRow();
+    
+    if (lastRow <= 1) {
+      return response({ error: "No exercises found" });
+    }
+    
+    // Get all Chinese names (Col 2)
+    const names = sheet.getRange(2, 2, lastRow - 1, 1).getValues().flat();
+    
+    const index = names.findIndex(name => name == targetName);
+    
+    if (index === -1) {
+      return response({ error: "Exercise not found" });
+    }
+    
+    // Delete row (index + 2)
+    sheet.deleteRow(index + 2);
+    
+    return response({ message: "Exercise deleted" });
+    
   } catch (err) {
     return response({ error: err.toString() });
   }

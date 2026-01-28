@@ -8,32 +8,32 @@ export interface Exercise {
 
 /**
  * 預設動作清單 - 僅作為最終 fallback 使用
- * 主要資料來源為 Google Sheets 的 "Exercises" 分頁
  */
 const DEFAULT_EXERCISES: Exercise[] = [
-  { zh: "羅馬尼亞硬舉", en: "Romanian Deadlift", targetMuscle: "腿後肌群", type: "strength" },
-  { zh: "槓鈴臥推", en: "Barbell Bench Press", targetMuscle: "胸大肌", type: "strength" },
-  { zh: "跑步機", en: "Treadmill", targetMuscle: "心肺", type: "cardio" },
+  { zh: "深蹲", en: "Squat", targetMuscle: "股四頭肌、臀大肌", type: "strength", part: "下肢" },
+  { zh: "臥推", en: "Bench Press", targetMuscle: "胸大肌", type: "strength", part: "胸部" },
+  { zh: "硬舉", en: "Deadlift", targetMuscle: "腿後肌群、下背", type: "strength", part: "下肢" },
+  { zh: "肩推", en: "Shoulder Press", targetMuscle: "三角肌", type: "strength", part: "肩部" },
+  { zh: "划船", en: "Row", targetMuscle: "背闊肌", type: "strength", part: "背部" },
+  { zh: "二頭彎舉", en: "Biceps Curl", targetMuscle: "肱二頭肌", type: "strength", part: "手臂/核心" },
+  { zh: "三頭下壓", en: "Triceps Pushdown", targetMuscle: "肱三頭肌", type: "strength", part: "手臂/核心" },
+  { zh: "跑步", en: "Running", targetMuscle: "心肺", type: "cardio", part: "有氧" }
 ];
 
 /**
- * 從 localStorage 讀取使用者自訂的動作
+ * 從 localStorage 讀取自訂動作
  */
 function getCustomExercises(): Exercise[] {
-  const stored = localStorage.getItem("customExercises");
-  if (!stored) return [];
-
   try {
-    return JSON.parse(stored) as Exercise[];
-  } catch (error) {
-    console.error("Failed to parse custom exercises from localStorage:", error);
+    const stored = localStorage.getItem("customExercises");
+    return stored ? JSON.parse(stored) : [];
+  } catch {
     return [];
   }
 }
 
 /**
- * 主要函數：從 Google Sheets 載入動作資料
- * 優先順序：Google Sheets > localStorage 自訂動作 > 預設動作
+ * 從 Google Sheets 載入動作清單
  */
 export async function fetchExercisesFromSheet(): Promise<Exercise[]> {
   try {
@@ -41,51 +41,25 @@ export async function fetchExercisesFromSheet(): Promise<Exercise[]> {
     const res = await fetchExercises();
 
     if (res.ok && res.data && res.data.length > 0) {
-      const { PREDEFINED_EXERCISES_LIST, EXERCISE_CATEGORIES } = await import("./data/exerciseList");
+      const { PREDEFINED_EXERCISES_LIST } = await import("./data/exerciseList");
 
       const customExercises = getCustomExercises();
       console.log(`✅ 已從 Google Sheets 載入 ${res.data.length} 個動作`);
 
       // Merge backend data with local category knowledge
+      // Google Apps Script now correctly returns: {part, zh, en, targetMuscle, type}
       const enrichedBackendData = res.data.map(ex => {
-        // 1. Detection of Column Shift (User added "Part" column at the beginning)
-        // Check if current 'zh' is actually a known category. 
-        // Real Data Shift: row[0]=Part -> mapped to 'zh'
-        const potentialPart = ex.zh ? ex.zh.trim() : "";
-        const knownCategories = Object.keys(EXERCISE_CATEGORIES);
-        let correctedEx = { ...ex };
-
-        if (knownCategories.includes(potentialPart)) {
-          // Shift detected!
-          // row[0] (zh) is Part
-          // row[1] (en) is ZH
-          // row[2] (targetMuscle) is EN
-          // row[3] (type) is Muscle
-          correctedEx = {
-            zh: ex.en,
-            en: ex.targetMuscle,
-            targetMuscle: (ex as any).type || "", // was mapped to row[3]
-            part: potentialPart,
-            type: "strength"  // Default, will be patched by match below
-          };
-        }
-
-        // If backend already has part (rare), use it.
-        if ((ex as any).part && !correctedEx.part) {
-          correctedEx.part = (ex as any).part;
-        }
-
-        // 2. Patch missing data / Enrich from static list
-        const match = PREDEFINED_EXERCISES_LIST.find(p => p.zh === correctedEx.zh);
+        const match = PREDEFINED_EXERCISES_LIST.find(p => p.zh === ex.zh);
         if (match) {
+          // Prefer Google Sheets data, fallback to static list
           return {
-            ...correctedEx,
-            part: match.part, // Ensure part is set to standard one
-            type: match.type || correctedEx.type, // Prefer static type if backend missing
-            targetMuscle: match.targetMuscle || correctedEx.targetMuscle
+            ...ex,
+            part: ex.part || match.part,
+            type: ex.type || match.type,
+            targetMuscle: ex.targetMuscle || match.targetMuscle
           };
         }
-        return correctedEx;
+        return ex;
       });
 
       if (customExercises.length > 0) {
@@ -107,50 +81,78 @@ export async function fetchExercisesFromSheet(): Promise<Exercise[]> {
 }
 
 /**
- * 儲存使用者自訂動作到 Google Sheets 並同步到 localStorage
+ * 儲存自訂動作到 localStorage
  */
-export async function saveCustomExercise(exercise: Exercise): Promise<{ ok: boolean; error?: string }> {
-  try {
-    // First, sync to backend (Google Sheets)
-    const { createExercise } = await import("./api");
-    const res = await createExercise({
-      zh: exercise.zh,
-      en: exercise.en || "",
-      targetMuscle: exercise.targetMuscle || "",
-      type: exercise.type || "strength"
-    });
+export function saveCustomExercise(exercise: Exercise) {
+  const customExercises = getCustomExercises();
+  const exists = customExercises.some(ex => ex.zh === exercise.zh);
 
-    if (!res.ok) {
-      // If backend fails, still save to localStorage as fallback
-      console.warn("⚠️ 無法同步到 Google Sheets，已儲存至本地:", res.error);
-      const custom = getCustomExercises();
-      custom.push(exercise);
-      localStorage.setItem("customExercises", JSON.stringify(custom));
-      return { ok: false, error: res.error };
-    }
-
-    // Success: also save to localStorage for offline access
-    const custom = getCustomExercises();
-    custom.push(exercise);
-    localStorage.setItem("customExercises", JSON.stringify(custom));
-    console.log(`✅ 已儲存自訂動作到 Google Sheets 與本地: ${exercise.zh}`);
-    return { ok: true };
-
-  } catch (error) {
-    // Network error or other issues: save to localStorage only
-    console.error("❌ 同步失敗，已儲存至本地:", error);
-    const custom = getCustomExercises();
-    custom.push(exercise);
-    localStorage.setItem("customExercises", JSON.stringify(custom));
-    return { ok: false, error: error instanceof Error ? error.message : "同步失敗" };
+  if (!exists) {
+    customExercises.push(exercise);
+    localStorage.setItem("customExercises", JSON.stringify(customExercises));
   }
 }
 
 /**
- * @deprecated 此函數僅用於向下相容，建議使用 fetchExercisesFromSheet()
+ * 從所有來源載入動作清單（優先順序：Google Sheets > localStorage > 預設）
  */
-export function loadExercises(): Exercise[] {
-  const customExercises = getCustomExercises();
-  return [...DEFAULT_EXERCISES, ...customExercises];
+export async function fetchExercises(): Promise<Exercise[]> {
+  try {
+    // 1. Try Google Sheets
+    const sheetExercises = await fetchExercisesFromSheet();
+    if (sheetExercises.length > 0) {
+      // Cache to localStorage for offline use
+      localStorage.setItem("exercises", JSON.stringify(sheetExercises));
+      return sheetExercises;
+    }
+
+    // 2. Fallback to localStorage cache
+    const cached = localStorage.getItem("exercises");
+    if (cached) {
+      console.warn("⚠️ 使用快取的動作清單");
+      return JSON.parse(cached);
+    }
+
+    // 3. Final fallback to defaults
+    console.warn("⚠️ 使用預設動作清單");
+    return DEFAULT_EXERCISES;
+
+  } catch (error) {
+    console.error("❌ 載入動作清單失敗:", error);
+
+    // Try localStorage as emergency fallback
+    try {
+      const cached = localStorage.getItem("exercises");
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch {
+      // Ignore cache errors
+    }
+
+    return DEFAULT_EXERCISES;
+  }
 }
 
+/**
+ * 同步載入動作清單（僅從 localStorage，用於初始化）
+ */
+export function loadExercises(): Exercise[] {
+  try {
+    const cached = localStorage.getItem("exercises");
+    if (cached) {
+      return JSON.parse(cached);
+    }
+    return DEFAULT_EXERCISES;
+  } catch {
+    return DEFAULT_EXERCISES;
+  }
+}
+
+/**
+ * 清除本地快取的動作清單
+ */
+export function clearExerciseCache() {
+  localStorage.removeItem("exercises");
+  localStorage.removeItem("customExercises");
+}
