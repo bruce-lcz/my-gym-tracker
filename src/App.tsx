@@ -39,6 +39,8 @@ import {
 } from "lucide-react";
 import ExerciseSelector from "./components/ExerciseSelector";
 import WeeklySummary from "./components/WeeklySummary";
+import LastWorkoutReference from "./components/LastWorkoutReference";
+import ExerciseManager from "./components/ExerciseManager";
 
 // 取得本地日期（台北時間）格式 YYYY-MM-DD
 const getLocalDate = () => {
@@ -65,7 +67,7 @@ const emptyLog: TrainingLog = {
 
 function AppContent() {
   const { currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<"training" | "menu" | "history" | "dashboard" | "ai-coach">("training");
+  const [activeTab, setActiveTab] = useState<"training" | "menu" | "history" | "dashboard" | "ai-coach" | "exercises">("training");
   const [user, setUser] = useState<User>(currentUser || "Bruce");
   const [form, setForm] = useState<TrainingLog>(emptyLog);
   const [logs, setLogs] = useState<TrainingLog[]>([]);
@@ -205,6 +207,7 @@ function AppContent() {
   };
 
   const [todayHistory, setTodayHistory] = useState<TrainingLog | null>(null);
+  const [lastWorkoutDetails, setLastWorkoutDetails] = useState<TrainingLog | null>(null);
 
   const handleExerciseSelect = (value: string) => {
     const selected = exercises.find(ex => ex.zh === value);
@@ -227,13 +230,30 @@ function AppContent() {
         .filter(log => log.actionZh === selected.zh && log.currentDate !== today)
         .sort((a, b) => (b.currentDate || "").localeCompare(a.currentDate || ""))[0];
 
+      // Store full last workout details for reference panel
+      setLastWorkoutDetails(lastLog || null);
+
+      // Calculate average weight from last workout for auto-fill
+      let autoFillWeight = "";
+      if (lastLog && lastLog.sets.length > 0 && type === "strength") {
+        const validSets = lastLog.sets.filter(s => parseFloat(s.weight || "0") > 0);
+
+        if (validSets.length > 0) {
+          if (validSets.length >= 2) {
+            autoFillWeight = validSets[validSets.length - 2].weight;
+          } else {
+            autoFillWeight = validSets[0].weight;
+          }
+        }
+      }
+
       setForm(prev => ({
         ...prev,
         actionZh: selected.zh,
         actionEn: selected.en,
         targetMuscle: selected.targetMuscle,
         lastDate: lastLog?.currentDate || "",
-        sets: [{ weight: "", reps: "", incline: "", speed: "", time: "" }] // Reset sets structure
+        sets: [{ weight: autoFillWeight, reps: "", incline: "", speed: "", time: "" }] // Auto-fill weight
       }));
     }
   };
@@ -306,6 +326,33 @@ function AppContent() {
       newSets[index] = { ...newSets[index], [field]: value };
       return { ...prev, sets: newSets };
     });
+  };
+
+  // Handler for applying weight from last workout reference
+  const handleApplyWeight = (weight: string) => {
+    setForm(prev => ({
+      ...prev,
+      sets: prev.sets.map(set => ({ ...set, weight }))
+    }));
+  };
+
+  // Handler for incrementing weight from last workout reference
+  const handleIncrementWeight = (increment: number) => {
+    if (!lastWorkoutDetails || lastWorkoutDetails.sets.length === 0) return;
+
+    const validSets = lastWorkoutDetails.sets.filter(s => parseFloat(s.weight || "0") > 0);
+
+    if (validSets.length > 0) {
+      let baseWeight = 0;
+      if (validSets.length >= 2) {
+        baseWeight = parseFloat(validSets[validSets.length - 2].weight);
+      } else {
+        baseWeight = parseFloat(validSets[0].weight);
+      }
+
+      const newWeight = (baseWeight + increment).toFixed(1);
+      handleApplyWeight(newWeight);
+    }
   };
 
   const addSet = () => {
@@ -439,6 +486,7 @@ function AppContent() {
     }
 
     // 3. Update Exercise Context (Type, History)
+    let lastLog: TrainingLog | undefined;
     if (foundExercise) {
       const today = getLocalDate();
       const rawType = foundExercise.type?.toLowerCase() || "strength";
@@ -451,9 +499,12 @@ function AppContent() {
       );
       setTodayHistory(todayLog || null);
 
-      const lastLog = logs
+      lastLog = logs
         .filter(log => log.actionZh === foundExercise.zh && log.currentDate !== today)
         .sort((a, b) => (b.currentDate || "").localeCompare(a.currentDate || ""))[0];
+
+      // Store full last workout details for reference panel
+      setLastWorkoutDetails(lastLog || null);
 
       targetMuscle = foundExercise.targetMuscle || "";
       actionEn = foundExercise.en || "";
@@ -462,11 +513,28 @@ function AppContent() {
       // Fallback
       setCurrentExerciseType("strength");
       setTodayHistory(null);
+      setLastWorkoutDetails(null);
     }
 
     // 4. Create 'sets' array based on plan
+    // Smart weight filling: Use plan weight if provided, otherwise use 2nd to last set weight
+    let smartWeight = item.weight || "";
+
+    // If no weight in plan but we have last workout data, use 2nd to last set weight
+    if (!smartWeight && lastLog && lastLog.sets.length > 0) {
+      const validSets = lastLog.sets.filter(s => parseFloat(s.weight || "0") > 0);
+
+      if (validSets.length > 0) {
+        if (validSets.length >= 2) {
+          smartWeight = validSets[validSets.length - 2].weight;
+        } else {
+          smartWeight = validSets[0].weight;
+        }
+      }
+    }
+
     const newSets = Array.from({ length: item.sets }).map(() => ({
-      weight: item.weight || "",
+      weight: smartWeight,
       reps: item.reps,
       incline: "", speed: "", time: ""
     }));
@@ -485,7 +553,7 @@ function AppContent() {
     setActiveTab("training");
 
     // Debug info
-    console.log("Loaded Plan Item:", { rawAction, match: foundExercise?.zh, sets: newSets });
+    console.log("Loaded Plan Item:", { rawAction, match: foundExercise?.zh, sets: newSets, smartWeight });
   };
 
   // ----------------------------------------------------------------
@@ -543,6 +611,17 @@ function AppContent() {
           >
             <Sparkles size={20} />
             {!sidebarCollapsed && <span>AI 助理教練</span>}
+          </button>
+          <button
+            className={`sidebar-item ${activeTab === "exercises" ? "active" : ""}`}
+            onClick={() => {
+              setActiveTab("exercises");
+              setMobileSidebarOpen(false);
+            }}
+            title="動作管理"
+          >
+            <Dumbbell size={20} />
+            {!sidebarCollapsed && <span>動作管理</span>}
           </button>
         </nav>
 
@@ -782,6 +861,18 @@ function AppContent() {
                   <span className="info-value">{form.lastDate}</span>
                 </div>
               )}
+
+              {/* Last Workout Reference Panel - Only show for strength exercises */}
+              {currentExerciseType === "strength" && lastWorkoutDetails && (
+                <div className="full">
+                  <LastWorkoutReference
+                    lastWorkout={lastWorkoutDetails}
+                    onApplyWeight={handleApplyWeight}
+                    onIncrementWeight={handleIncrementWeight}
+                  />
+                </div>
+              )}
+
               <label>
                 訓練日期
                 <input
@@ -1037,6 +1128,11 @@ function AppContent() {
             user={user}
             logs={logs}
           />
+        )}
+
+        {/* Exercise Manager Tab */}
+        {activeTab === "exercises" && (
+          <ExerciseManager />
         )}
       </div>
 
